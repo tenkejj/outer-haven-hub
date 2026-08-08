@@ -18,22 +18,26 @@ const footModeEl = document.getElementById("foot-mode");
 let toastTimer = 0;
 let actionBusy = false;
 
-/* ---------- kiosk viewport pin ----------
-   Shell bierze --kiosk-w/--kiosk-h z realnego okna (innerWidth/Height).
-   Uwaga: jeśli screen.width > innerWidth, czarny pasek jest POZA Chromium
-   (X letterbox / --window-size) — CSS tego nie zasłoni; patrz DEPLOY.md. */
+/* ---------- kiosk viewport scale ----------
+   Layout żyje w stałym canvasie 1024×600 (gęsty HUD). Skalujemy non-uniform
+   do okna: scale(innerW/1024, innerH/600) — wypełnia ekran bez letterboxingu.
+   Transform jest tylko wizualny; metryki/wykresy liczą w px design size.
+   Czarny pasek poza Chromium (X / --window-size) — patrz DEPLOY.md. */
 
-function pinKioskViewport() {
-  const w = Math.max(1, Math.round(window.innerWidth));
-  const h = Math.max(1, Math.round(window.innerHeight));
-  const root = document.documentElement;
-  root.style.setProperty("--kiosk-w", `${w}px`);
-  root.style.setProperty("--kiosk-h", `${h}px`);
+const DESIGN_W = 1024;
+const DESIGN_H = 600;
+
+function scaleKioskViewport() {
+  const shell = document.querySelector(".shell");
+  if (!shell) return;
+  const sx = Math.max(0.01, window.innerWidth / DESIGN_W);
+  const sy = Math.max(0.01, window.innerHeight / DESIGN_H);
+  shell.style.transform = `scale(${sx}, ${sy})`;
 }
 
-pinKioskViewport();
-window.addEventListener("resize", pinKioskViewport);
-window.addEventListener("orientationchange", pinKioskViewport);
+scaleKioskViewport();
+window.addEventListener("resize", scaleKioskViewport);
+window.addEventListener("orientationchange", scaleKioskViewport);
 
 /* ---------- zegar ---------- */
 

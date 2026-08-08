@@ -5,25 +5,25 @@
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <!-- Cache-bust: kiosk Chromium bywa uparty względem starego style.css -->
-  <link rel="stylesheet" href="style.css?v=fullbleed2">
+  <link rel="stylesheet" href="style.css?v=canvas-scale1">
 </head>
 <body>
-  <!-- Codec boot — jednorazowy splash przy starcie (MGS) -->
-  <div id="boot-splash" class="boot-splash" aria-live="polite">
-    <div class="boot-frame">
-      <div class="boot-corner tl" aria-hidden="true"></div>
-      <div class="boot-corner tr" aria-hidden="true"></div>
-      <div class="boot-corner bl" aria-hidden="true"></div>
-      <div class="boot-corner br" aria-hidden="true"></div>
-      <div class="boot-label" id="boot-label">CODEC CONNECTING…</div>
-      <div class="boot-bars" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span>
+  <div class="shell">
+    <!-- Codec boot — wewnątrz shell, żeby skalował się z canvasem 1024×600 -->
+    <div id="boot-splash" class="boot-splash" aria-live="polite">
+      <div class="boot-frame">
+        <div class="boot-corner tl" aria-hidden="true"></div>
+        <div class="boot-corner tr" aria-hidden="true"></div>
+        <div class="boot-corner bl" aria-hidden="true"></div>
+        <div class="boot-corner br" aria-hidden="true"></div>
+        <div class="boot-label" id="boot-label">CODEC CONNECTING…</div>
+        <div class="boot-bars" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="shell">
     <div class="corner tl" aria-hidden="true"></div>
     <div class="corner tr" aria-hidden="true"></div>
     <div class="corner bl" aria-hidden="true"></div>
@@ -57,6 +57,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=fullbleed2"></script>
+  <script src="app.js?v=canvas-scale1"></script>
 </body>
 </html>

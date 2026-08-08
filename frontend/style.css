@@ -1,12 +1,11 @@
-/* Outer Haven Hub — kiosk full-bleed (dawniej canvas 1024×600)
+/* Outer Haven Hub — stały canvas 1024×600 + scale do viewportu
    Cyberpunk × MGS/NieR: flat HUD, nerd mono wszędzie.
    Zakaz: soft gradienty tła, jasne glowy, zaokrąglone „AI cards”.
 
-   Layout: Option A — fluid stretch (flex/grid 1fr), NIE stały canvas + scale.
-   html/body/.shell pinowane do viewportu przez inset:0 (bez 100vw —
-   100vw bywa szersze od okna i nie naprawia letterboxingu X poza Chromium).
-   Jeśli nadal widać czarny pasek po PRAWEJ: to prawie na pewno okno X /
-   --window-size / zły tryb xrandr — CSS nie maluje poza oknem przeglądarki. */
+   Layout: gęsty HUD projektowany na 1024×600. JS skaluje .shell
+   non-uniform (scaleX/scaleY) do innerWidth×innerHeight — pełne wypełnienie
+   bez letterboxingu (1024/600≈1.71 vs 16:9≈1.78, lekkie rozciągnięcie OK).
+   Skala jest tylko wizualna: layout/wykresy liczą w px design canvas. */
 
 @font-face {
   font-family: "JB Nerd";
@@ -49,6 +48,9 @@
   --muted: #5a5850;
   --font: "JB Nerd", "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
   --touch: 44px;
+  /* Design canvas — gęstość HUD jak na panelu 1024×600 */
+  --design-w: 1024px;
+  --design-h: 600px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -58,17 +60,16 @@ html {
   padding: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   background: var(--bg);
 }
 
 body {
-  position: fixed;
-  inset: 0;
+  position: relative;
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  max-width: none;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -81,20 +82,20 @@ body {
   user-select: none;
 }
 
-/* Pełny bleed: top/left + wymiary z JS (nie 100vw, nie inset+width naraz). */
+/* Stały canvas 1024×600; JS dokłada transform: scale(sx, sy). */
 .shell {
   position: absolute;
   top: 0;
   left: 0;
-  width: var(--kiosk-w, 100%);
-  height: var(--kiosk-h, 100%);
-  max-width: none;
+  width: var(--design-w);
+  height: var(--design-h);
   margin: 0;
   padding: 8px 10px 6px;
   display: flex;
   flex-direction: column;
   background: var(--bg);
   box-sizing: border-box;
+  transform-origin: 0 0;
 }
 
 .corner {
@@ -1277,15 +1278,13 @@ body {
   font-size: 13px;
 }
 
-/* ---------- boot splash (codec) ---------- */
+/* ---------- boot splash (codec) ----------
+   Wewnątrz .shell — skaluje się razem z canvasem (ta sama gęstość HUD). */
 
 .boot-splash {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 100;
-  width: 100%;
-  height: 100%;
-  max-width: none;
   display: flex;
   align-items: center;
   justify-content: center;
