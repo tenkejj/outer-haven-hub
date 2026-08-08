@@ -1,0 +1,19 @@
+# Fragment do wklejenia do istniejącego Caddyfile.
+# Pełna instrukcja (hostname’y, dns.hosts, kiosk): patrz DEPLOY.md w korzeniu repo.
+#
+# Backend słucha TYLKO na 127.0.0.1:8090; Caddy robi reverse proxy.
+# Dla lokalnych nazw używaj `tls internal` — inaczej Caddy
+# będzie próbował Let’s Encrypt dla nierozwiązywalnej z internetu domeny.
+
+# Przykład (dostosuj IP / hostname’y do swojego środowiska):
+#
+# hub.lan {
+#     tls internal
+#     reverse_proxy 127.0.0.1:8090
+# }
+#
+# Istniejący blok Pi-hole (port 8080) zostaw osobno, np.:
+# pihole.lan, YOUR_WG_IP, YOUR_PI_IP {
+#     tls internal
+#     reverse_proxy localhost:8080
+# }

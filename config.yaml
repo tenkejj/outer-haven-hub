@@ -1,0 +1,32 @@
+# Outer Haven Hub — konfiguracja włączonych źródeł danych.
+# Dodanie nowego collectora = dopisanie id poniżej + wpis w registry.py.
+# Kolejność na liście = kolejność kart na dashboardzie.
+
+enabled_collectors:
+  - pihole
+  - wireguard
+  - system
+  - smart
+  # - nextcloud   ← odkomentuj, gdy dodasz ten moduł
+
+collectors:
+  pihole:
+    # Adres bazowy API Pi-hole (ta sama maszyna → localhost).
+    # Hasło aplikacji: backend/.env → PIHOLE_APP_PASSWORD
+    # Jeśli Caddy zajmuje 80/443, Pi-hole często jest na :8080 →
+    # "http://127.0.0.1:8080" — patrz DEPLOY.md.
+    base_url: "http://127.0.0.1"
+
+  smart:
+    # Ścieżka urządzenia SSD. Musi być identyczna z wpisem w
+    # deploy/sudoers-outer-haven-hub (sudo porównuje argumenty 1:1).
+    device: "/dev/sda"
+    # Punkt montowania do metryki FREE (shutil.disk_usage).
+    mount: "/"
+
+  wireguard:
+    # Mapa klucz_publiczny → przyjazna nazwa na karcie.
+    # Klucz bierzesz z `sudo wg show` (kolumna peer).
+    peer_names:
+      # "YOUR_PEER_PUBLIC_KEY_BASE64=": "laptop"
+      # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"

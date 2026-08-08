@@ -1,0 +1,11 @@
+# Wąskie uprawnienia sudo dla Outer Haven Hub.
+# Instalacja:
+#   sudo install -m 440 -o root -g root deploy/sudoers-outer-haven-hub /etc/sudoers.d/outer-haven-hub
+#   sudo visudo -cf /etc/sudoers.d/outer-haven-hub
+#
+# Zamień "pi" na użytkownika z jednostką systemd.
+# Argumenty MUSZĄ być identyczne z wywołaniami w smart.py / wireguard.py
+# (sudo porównuje 1:1). Jeśli zmienisz device w config.yaml — zmień też tutaj.
+
+pi ALL=(root) NOPASSWD: /usr/sbin/smartctl -i -H -A -j /dev/sda
+pi ALL=(root) NOPASSWD: /usr/bin/wg show all dump

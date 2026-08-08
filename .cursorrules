@@ -1,0 +1,41 @@
+# Outer Haven Hub — zasady dla Cursora
+
+Ten projekt jest częścią większej infrastruktury domowej opisanej w dokumentach
+`mother-base`. Specyfikacja źródłowa: SPECYFIKACJA-outer-haven-hub.md.
+
+## Zasady
+
+- Kod ma być czytelny i dobrze skomentowany — właściciel projektu uczy się
+  backendu, nie tylko chce działającego produktu.
+- Trzymaj się filozofii minimalizmu zasobów — to Raspberry Pi 4, nie serwer
+  produkcyjny. Nie wprowadzaj zależności/frameworków bez wyraźnej potrzeby.
+- Frontend: vanilla HTML/CSS/JS, bez React/Vue/itd.
+- Backend: Python 3 + FastAPI, nasłuch wyłącznie na 127.0.0.1.
+- Każda decyzja odbiegająca od specyfikacji powinna być jawnie skomentowana
+  i wyjaśniona, nie cicho podjęta.
+
+## Rozszerzalność (priorytet projektowy)
+
+Każdy nowy collector musi dać się dodać bez modyfikacji istniejących plików
+poza `registry.py` i `config.yaml`. Jeśli podczas implementacji okaże się,
+że dodanie nowego źródła wymaga zmiany w więcej niż tych dwóch miejscach —
+to sygnał, że wzorzec bazowy (`base.py`) wymaga poprawki, a nie że trzeba
+iść na skróty.
+
+Przy pisaniu każdego collectora trzymaj się dokładnie kontraktu danych
+z `backend/collectors/base.py` — spójność formatu pozwala frontendowi
+renderować karty generycznie, bez wiedzy „z góry” o konkretnym źródle.
+
+## Decyzje otwarte (sekcja 10 specyfikacji)
+
+1. Akcje z ekranu: tak — collector deklaruje `actions[]`, endpoint
+   `POST /api/collectors/<id>/actions/<action_id>`. Start: Pi-hole OFF 5M / 15M / ON.
+2. Wykresy: tak — Pi-hole mini-wykres 24h (API v6 `/api/history`), same linie.
+3. Alarmowe podświetlenie: tak — status `ok|warning|error` (pasek / kod, bez glow).
+
+## UI
+
+- Kierunek: MGS codec / NieR — flat, geometryczny, mono.
+- ZAKAZ: gradienty tła, soft glow, box-shadow z poświatą, zaokrąglone „karty AI”,
+  fiolet, glassmorphism, emoji.
+- Akcent: jeden stonowany oliwkowy. Narożniki L, twarde krawędzie, duże cele dotykowe.

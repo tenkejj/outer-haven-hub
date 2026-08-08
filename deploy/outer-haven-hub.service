@@ -1,0 +1,32 @@
+# systemd unit — Outer Haven Hub backend
+# Instalacja:
+#   sudo cp deploy/outer-haven-hub.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now outer-haven-hub
+#
+# Dostosuj User= i ścieżki WorkingDirectory/ExecStart do konta
+# oraz lokalizacji repo na Pi (domyślnie: użytkownik pi).
+
+[Unit]
+Description=Outer Haven Hub — dashboard aggregator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/outer-haven-hub/backend
+EnvironmentFile=-/home/pi/outer-haven-hub/backend/.env
+Environment=HUB_CONFIG=/home/pi/outer-haven-hub/config.yaml
+ExecStart=/home/pi/outer-haven-hub/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8090
+Restart=on-failure
+RestartSec=3
+
+# Bezpieczeństwo: backend NIE jest rootem. Uprawnienia do smartctl/wg
+# idą wyłącznie przez /etc/sudoers.d/outer-haven-hub.
+NoNewPrivileges=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

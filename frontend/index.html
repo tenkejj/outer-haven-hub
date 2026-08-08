@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>OUTER HAVEN HUB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <!-- Cache-bust: kiosk Chromium bywa uparty względem starego style.css -->
+  <link rel="stylesheet" href="style.css?v=fullbleed2">
+</head>
+<body>
+  <!-- Codec boot — jednorazowy splash przy starcie (MGS) -->
+  <div id="boot-splash" class="boot-splash" aria-live="polite">
+    <div class="boot-frame">
+      <div class="boot-corner tl" aria-hidden="true"></div>
+      <div class="boot-corner tr" aria-hidden="true"></div>
+      <div class="boot-corner bl" aria-hidden="true"></div>
+      <div class="boot-corner br" aria-hidden="true"></div>
+      <div class="boot-label" id="boot-label">CODEC CONNECTING…</div>
+      <div class="boot-bars" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <div class="corner tl" aria-hidden="true"></div>
+    <div class="corner tr" aria-hidden="true"></div>
+    <div class="corner bl" aria-hidden="true"></div>
+    <div class="corner br" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand-lockup">
+        <img class="emblem" src="assets/oh-emblem.png" width="340" height="280" alt="Outer Heaven">
+        <div class="brand-block">
+          <div class="brand">OUTER HAVEN</div>
+          <div class="brand-sub">MOTHER_BASE</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div id="toast" class="toast" hidden></div>
+      <div class="clock">
+        <div class="clock-time" id="clock-time">--:--:--</div>
+        <div class="clock-date" id="clock-date"></div>
+      </div>
+      <div class="badge" id="overall">···</div>
+    </header>
+
+    <div class="rule" aria-hidden="true"></div>
+
+    <main id="dashboard-grid" aria-live="polite"></main>
+
+    <footer class="foot">
+      <span id="foot-uptime">UP —</span>
+      <span class="foot-sep">·</span>
+      <span id="foot-mode">LIVE</span>
+    </footer>
+  </div>
+
+  <script src="app.js?v=fullbleed2"></script>
+</body>
+</html>
