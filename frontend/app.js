@@ -188,25 +188,30 @@ function downsample(points, maxPoints) {
   return out;
 }
 
-function renderChart(chart, options = {}) {
-  if (!chart || chart.type !== "line" || !Array.isArray(chart.series) || !chart.series.length) {
-    return "";
-  }
+function seriesRole(s) {
+  if (s.role === "accent" || s.role === "warn") return s.role;
+  return "muted";
+}
 
-  const wide = Boolean(options.wide);
-  const dimmed = Boolean(options.dimmed);
-  const width = wide ? 520 : 300;
-  const height = wide ? 160 : 112;
-  const padX = 4;
-  const padY = 7;
+function chartLegend(series) {
+  return series.map((s) => {
+    const role = seriesRole(s);
+    return `<div class="chart-legend-row lg-${role}">
+      <span class="lg-swatch"></span>
+      <span class="lg-name">${esc(s.label || role)}</span>
+    </div>`;
+  }).join("");
+}
 
-  const series = chart.series.map((s) => ({
-    ...s,
-    points: downsample(s.points, CHART_MAX_POINTS),
-  })).filter((s) => s.points.length);
+function chartGuides(width, height, padX, padY) {
+  return [0.25, 0.5, 0.75].map((t) => {
+    const y = (padY + t * (height - padY * 2)).toFixed(1);
+    return `<line class="chart-guide" x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" />`;
+  }).join("");
+}
 
-  if (!series.length) return "";
-
+/** Linie — metryki systemowe (CPU / RAM / temp). */
+function renderLinePlot(series, width, height, padX, padY) {
   const allPoints = series.flatMap((s) => s.points);
   const dataMin = Math.min(...allPoints);
   const dataMax = Math.max(...allPoints);
@@ -232,29 +237,96 @@ function renderChart(chart, options = {}) {
     ).join(" ");
   }
 
-  // Poziome linie pomocnicze (płaskie, bez glow).
-  const guides = [0.25, 0.5, 0.75].map((t) => {
-    const y = (padY + t * (height - padY * 2)).toFixed(1);
-    return `<line class="chart-guide" x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" />`;
-  }).join("");
-
-  function seriesRole(s) {
-    if (s.role === "accent" || s.role === "warn") return s.role;
-    return "muted";
-  }
-
   const lines = series.map((s) => {
     const role = seriesRole(s);
     return `<path class="chart-line chart-line-${role}" d="${pathFor(s.points)}" />`;
   }).join("");
 
-  const legend = series.map((s) => {
-    const role = seriesRole(s);
-    return `<div class="chart-legend-row lg-${role}">
-      <span class="lg-swatch"></span>
-      <span class="lg-name">${esc(s.label || role)}</span>
-    </div>`;
-  }).join("");
+  return `${chartGuides(width, height, padX, padY)}${lines}`;
+}
+
+/** Słupki warstwowe — Pi-hole: dół = blocked (accent), góra = permitted (muted).
+    Seria muted = TOTAL zapytań; permitted = max(0, total − blocked). */
+function renderStackedBarPlot(series, width, height, padX, padY) {
+  const blocked = series.find((s) => seriesRole(s) === "accent")
+    || series.find((s) => seriesRole(s) === "warn");
+  const total = series.find((s) => seriesRole(s) === "muted");
+  if (!blocked || !total) return "";
+
+  const len = Math.max(blocked.points.length, total.points.length, 1);
+  const plotW = width - padX * 2;
+  const plotH = height - padY * 2;
+  const gap = 1;
+  const barW = Math.max(1, (plotW - gap * Math.max(len - 1, 0)) / len);
+
+  let maxTotal = 0;
+  for (let i = 0; i < len; i++) {
+    const t = Number(total.points[i]) || 0;
+    const b = Number(blocked.points[i]) || 0;
+    maxTotal = Math.max(maxTotal, t, b);
+  }
+  const yMax = Math.max(maxTotal * 1.05, 1);
+
+  function hAt(v) {
+    return (Math.max(0, Number(v) || 0) / yMax) * plotH;
+  }
+
+  const bars = [];
+  for (let i = 0; i < len; i++) {
+    const rawTotal = Math.max(0, Number(total.points[i]) || 0);
+    const rawBlocked = Math.max(0, Number(blocked.points[i]) || 0);
+    // Edge case: total < blocked → przytnij blocked, permitted = 0.
+    const bVal = Math.min(rawBlocked, rawTotal);
+    const pVal = Math.max(0, rawTotal - bVal);
+    const x = (padX + i * (barW + gap)).toFixed(2);
+    const hB = hAt(bVal);
+    const hP = hAt(pVal);
+    const yBase = height - padY;
+    const yBlocked = (yBase - hB).toFixed(2);
+    const yPermitted = (yBase - hB - hP).toFixed(2);
+    const w = barW.toFixed(2);
+
+    if (hP > 0.05) {
+      bars.push(
+        `<rect class="chart-bar chart-bar--muted" x="${x}" y="${yPermitted}" width="${w}" height="${hP.toFixed(2)}" />`,
+      );
+    }
+    if (hB > 0.05) {
+      bars.push(
+        `<rect class="chart-bar chart-bar--accent" x="${x}" y="${yBlocked}" width="${w}" height="${hB.toFixed(2)}" />`,
+      );
+    }
+  }
+
+  return `${chartGuides(width, height, padX, padY)}${bars.join("")}`;
+}
+
+function renderChart(chart, options = {}) {
+  const type = chart && chart.type;
+  if (!chart || (type !== "line" && type !== "stacked_bar")
+      || !Array.isArray(chart.series) || !chart.series.length) {
+    return "";
+  }
+
+  const wide = Boolean(options.wide);
+  const dimmed = Boolean(options.dimmed);
+  const width = wide ? 520 : 300;
+  const height = wide ? 160 : 112;
+  const padX = 4;
+  const padY = 7;
+
+  const series = chart.series.map((s) => ({
+    ...s,
+    points: downsample(s.points, CHART_MAX_POINTS),
+  })).filter((s) => s.points.length);
+
+  if (!series.length) return "";
+
+  const plot = type === "stacked_bar"
+    ? renderStackedBarPlot(series, width, height, padX, padY)
+    : renderLinePlot(series, width, height, padX, padY);
+
+  if (!plot) return "";
 
   const title = chart.title
     ? `<div class="chart-title">${esc(chart.title)}</div>`
@@ -266,11 +338,10 @@ function renderChart(chart, options = {}) {
   return `<div class="chart-wrap${wide ? " chart-wrap--wide" : ""}${dimmed ? " chart-wrap--dim" : ""}" aria-hidden="true">
     ${title}
     ${caption}
-    <div class="chart-legend">${legend}</div>
+    <div class="chart-legend">${chartLegend(series)}</div>
     <div class="chart">
       <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none">
-        ${guides}
-        ${lines}
+        ${plot}
       </svg>
     </div>
   </div>`;

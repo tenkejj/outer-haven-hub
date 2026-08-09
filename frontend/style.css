@@ -1179,6 +1179,12 @@ body {
 .chart-line-accent { stroke: var(--accent); stroke-width: 2.25; }
 .chart-line-warn { stroke: var(--warn); stroke-width: 2; }
 
+/* Słupki warstwowe (Pi-hole stacked_bar) — flat fill, bez glow. */
+.chart-bar { stroke: none; }
+.chart-bar--muted { fill: #7a7568; }
+.chart-bar--accent { fill: var(--accent); }
+.chart-bar--warn { fill: var(--warn); }
+
 /* ---------- actions ---------- */
 
 .actions {

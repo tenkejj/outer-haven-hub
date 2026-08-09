@@ -166,19 +166,20 @@ class PiholeCollector(Collector):
         timer = blocking.get("timer")  # sekundy do automatycznego włączenia, albo None
 
         points = history.get("history", [])
-        # Tylko kluczowe liczby na hero — cache/forward/gravity to szum na kiosku.
+        # stacked_bar: frontend składa blocked (dół) + (total−blocked) (góra).
+        # Kolejność serii: BLOCKED (accent) potem TOTAL (muted) — patrz base.py.
         chart = {
-            "type": "line",
+            "type": "stacked_bar",
             "series": [
-                {
-                    "label": "TOTAL",
-                    "role": "muted",
-                    "points": [p.get("total", 0) for p in points],
-                },
                 {
                     "label": "BLOCKED",
                     "role": "accent",
                     "points": [p.get("blocked", 0) for p in points],
+                },
+                {
+                    "label": "TOTAL",
+                    "role": "muted",
+                    "points": [p.get("total", 0) for p in points],
                 },
             ],
         }

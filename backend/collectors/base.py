@@ -50,16 +50,26 @@ lub pasek TEJ metryki (np. nieaktywny peer = "muted"). Statusy CAŁEJ karty
 Kształt wykresu (opcjonalny; specyfikacja sekcja 3.1 przewiduje pole "chart"):
 
     {
-      "type": "line",
+      "type": "line" | "stacked_bar",
       "series": [
-        {"label": "zapytania",    "role": "muted",  "points": [12, 40, ...]},
-        {"label": "zablokowane",  "role": "accent", "points": [3, 11, ...]}
+        {"label": "zablokowane",  "role": "accent", "points": [3, 11, ...]},
+        {"label": "zapytania",    "role": "muted",  "points": [12, 40, ...]}
       ]
     }
 
+Typy wykresu:
+  - "line"        — linie (metryki systemowe: CPU / RAM / temp).
+  - "stacked_bar" — pionowe słupki warstwowe (Pi-hole: klasyczny UI).
+    Frontend bierze serię "accent" jako dolny segment (blocked) oraz
+    serię "muted" jako TOTAL; górny segment = max(0, total - blocked).
+    Gdy total < blocked, blocked jest przycięty do total (brak ujemnego
+    „permitted”). Świadome odejście od wcześniejszej decyzji „tylko linie”
+    (sekcja 10 / .cursorrules) — słupki warstwowe są czytelniejsze dla
+    historii zapytań DNS niż nakładające się pathy.
+
 "role" mówi frontendowi, którym kolorem z palety narysować serię
-("accent" = kolor akcentu, "muted" = stonowany) — collector nie zna
-konkretnych kolorów, to decyzja warstwy prezentacji.
+("accent" = kolor akcentu, "muted" = stonowany, "warn" = ostrzeżenie) —
+collector nie zna konkretnych kolorów, to decyzja warstwy prezentacji.
 """
 
 from __future__ import annotations
