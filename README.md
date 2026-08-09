@@ -4,6 +4,8 @@ Dashboard / kiosk for a Raspberry Pi home lab: Pi-hole, WireGuard, system metric
 
 Naming (`mother-base`, Outer Haven) is heavily inspired by Metal Gear.
 
+![Outer Haven Hub dashboard](docs/dashboard.png)
+
 **Stack:** Python 3 + FastAPI backend; vanilla HTML/CSS/JS frontend. Listens on `127.0.0.1` only.
 
 ## Local demo
