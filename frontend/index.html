@@ -5,7 +5,7 @@
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <!-- Cache-bust: kiosk Chromium bywa uparty względem starego style.css -->
-  <link rel="stylesheet" href="style.css?v=stacked-bar1">
+  <link rel="stylesheet" href="style.css?v=pages-svc1">
 </head>
 <body>
   <div class="shell">
@@ -31,7 +31,7 @@
 
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="emblem" src="assets/oh-emblem.png" width="340" height="280" alt="Outer Heaven">
+        <img class="emblem" src="assets/oh-emblem.png" width="340" height="280" alt="Outer Haven">
         <div class="brand-block">
           <div class="brand">OUTER HAVEN</div>
           <div class="brand-sub">MOTHER_BASE</div>
@@ -48,15 +48,41 @@
 
     <div class="rule" aria-hidden="true"></div>
 
-    <main id="dashboard-grid" aria-live="polite"></main>
+    <!-- Codec segment: HUB | SVC | MEDIA — hash #hub / #svc / #media -->
+    <nav class="page-nav" id="page-nav" role="tablist" aria-label="Pages">
+      <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">HUB</button>
+      <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">SVC</button>
+      <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">MEDIA</button>
+    </nav>
+
+    <!-- Trzy widoki w jednej powłoce (kiosk — bez pełnego przeładowania) -->
+    <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
+      <div id="dashboard-grid"></div>
+    </main>
+    <main id="view-svc" class="view" data-page="svc" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">SERVICES</span>
+        <span class="view-meta" id="svc-meta">—</span>
+      </div>
+      <div id="svc-grid" class="svc-grid"></div>
+    </main>
+    <main id="view-media" class="view" data-page="media" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">MEDIA</span>
+        <span class="view-meta" id="media-meta">JELLYFIN · SMB</span>
+      </div>
+      <div id="media-grid" class="media-grid"></div>
+    </main>
 
     <footer class="foot">
       <span id="foot-uptime">UP —</span>
       <span class="foot-sep">·</span>
       <span id="foot-mode">LIVE</span>
+      <span class="foot-sep">·</span>
+      <span id="foot-page">HUB</span>
     </footer>
   </div>
 
-  <script src="app.js?v=stacked-bar1"></script>
+  <script src="app.js?v=pages-svc1"></script>
 </body>
 </html>

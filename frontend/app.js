@@ -1,13 +1,23 @@
 /* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
-   Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions). */
+   Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
+
+   Strony (ten sam shell, bez reload): HUB | SVC | MEDIA — hash #hub/#svc/#media.
+   Collector `services` nie trafia na siatkę HUB; SVC/MEDIA budują z jego metryk. */
 
 const POLL_MS = 5000;
 /* Status na karcie (krótko) vs badge w topbarze (MGS-owo, bez 0x…). */
 const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
 const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
+const PAGES = ["hub", "svc", "media"];
 
 const grid = document.getElementById("dashboard-grid");
+const svcGrid = document.getElementById("svc-grid");
+const mediaGrid = document.getElementById("media-grid");
+const svcMeta = document.getElementById("svc-meta");
+const mediaMeta = document.getElementById("media-meta");
+const pageNav = document.getElementById("page-nav");
+const footPageEl = document.getElementById("foot-page");
 const overallEl = document.getElementById("overall");
 const clockTimeEl = document.getElementById("clock-time");
 const clockDateEl = document.getElementById("clock-date");
@@ -17,6 +27,9 @@ const footModeEl = document.getElementById("foot-mode");
 
 let toastTimer = 0;
 let actionBusy = false;
+/** Ostatni payload dashboardu — przełączanie stron bez czekania na poll. */
+let lastDashboard = null;
+let currentPage = "hub";
 
 /* ---------- kiosk viewport scale ----------
    Layout żyje w stałym canvasie 1024×600 (gęsty HUD). Skalujemy non-uniform
@@ -478,6 +491,182 @@ function renderCard(collector, index) {
   </article>`;
 }
 
+/* ---------- SVC / MEDIA (collector services) ---------- */
+
+function servicesCollector(data) {
+  return (data.collectors || []).find((c) => c.id === "services") || null;
+}
+
+function serviceStatusMetrics(collector) {
+  return (collector.metrics || []).filter((m) => m.type === "status");
+}
+
+function serviceSummary(collector) {
+  const nums = (collector.metrics || []).filter((m) => m.type === "number");
+  const up = nums.find((m) => String(m.label).toUpperCase() === "UP");
+  const down = nums.find((m) => String(m.label).toUpperCase() === "DOWN");
+  return { up: up ? up.value : "—", down: down ? down.value : "—" };
+}
+
+/** Karta jednostki systemd — ten sam chrome co HUB (pasek statusu, L-feel). */
+function renderServiceCard(metric, index, options = {}) {
+  const status = metric.state || "error";
+  const idx = String(index + 1).padStart(2, "0");
+  const note = options.showNote && metric.note
+    ? `<div class="svc-note">${esc(metric.note)}</div>`
+    : "";
+  const sub = options.subtitle
+    ? `<div class="svc-sub">${esc(options.subtitle)}</div>`
+    : "";
+  return `<article class="card svc-card" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
+    <header class="card-head">
+      <span class="card-index">0x${idx}</span>
+      <span class="card-title">${esc(metric.label)}</span>
+      <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
+    </header>
+    <div class="card-body svc-card-body">
+      <div class="svc-state" data-state="${esc(status)}">
+        <span class="mark" data-state="${esc(status)}"></span>
+        <span class="svc-value">${esc(metric.value)}</span>
+      </div>
+      ${sub}
+      ${note}
+    </div>
+  </article>`;
+}
+
+function renderSvcView(collector) {
+  if (!svcGrid) return;
+  if (!collector) {
+    svcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    if (svcMeta) svcMeta.textContent = "NO DATA";
+    return;
+  }
+  if (collector.error && !serviceStatusMetrics(collector).length) {
+    svcGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
+    if (svcMeta) svcMeta.textContent = "ERR";
+    return;
+  }
+  const units = serviceStatusMetrics(collector);
+  const sum = serviceSummary(collector);
+  if (svcMeta) svcMeta.textContent = `UP ${sum.up} · DOWN ${sum.down}`;
+  if (!units.length) {
+    svcGrid.innerHTML = `<div class="empty-state">no units</div>`;
+    return;
+  }
+  svcGrid.innerHTML = units.map((m, i) => renderServiceCard(m, i)).join("");
+}
+
+function renderMediaView(collector) {
+  if (!mediaGrid) return;
+  if (!collector) {
+    mediaGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    return;
+  }
+  const units = serviceStatusMetrics(collector).filter((m) => {
+    if (m.media) return true;
+    const id = String(m.id || "").toLowerCase();
+    const label = String(m.label || "").toUpperCase();
+    return id === "jellyfin" || id === "samba" || label === "JELLYFIN" || label === "SMB";
+  });
+  if (!units.length) {
+    mediaGrid.innerHTML = `<div class="empty-state">no media units</div>`;
+    return;
+  }
+  const allUp = units.every((m) => m.state === "ok");
+  if (mediaMeta) {
+    mediaMeta.textContent = allUp ? "LINK READY" : "CHECK UNITS";
+  }
+  mediaGrid.innerHTML = units.map((m, i) => {
+    const sub = String(m.id || m.label).toLowerCase() === "samba"
+      || String(m.label).toUpperCase() === "SMB"
+      ? "SAMBA SHARE"
+      : "STREAM";
+    return renderServiceCard(m, i, { showNote: true, subtitle: sub });
+  }).join("");
+}
+
+/* ---------- nawigacja stron ---------- */
+
+function pageFromHash() {
+  const raw = (location.hash || "").replace(/^#/, "").toLowerCase();
+  return PAGES.includes(raw) ? raw : "hub";
+}
+
+function setPage(page, options = {}) {
+  const next = PAGES.includes(page) ? page : "hub";
+  currentPage = next;
+
+  document.querySelectorAll(".view").forEach((el) => {
+    const on = el.dataset.page === next;
+    el.classList.toggle("is-active", on);
+    el.hidden = !on;
+  });
+
+  if (pageNav) {
+    pageNav.querySelectorAll(".page-tab").forEach((btn) => {
+      const on = btn.dataset.page === next;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  if (footPageEl) footPageEl.textContent = next.toUpperCase();
+
+  if (options.updateHash !== false) {
+    const want = `#${next}`;
+    if (location.hash !== want) {
+      history.replaceState(null, "", want);
+    }
+  }
+
+  if (lastDashboard) {
+    paintPage(lastDashboard);
+  }
+}
+
+function paintPage(data) {
+  const svc = servicesCollector(data);
+  if (currentPage === "hub") {
+    const collectors = (data.collectors || []).filter((c) => c.id !== "services");
+    if (!collectors.length) {
+      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+    } else {
+      grid.innerHTML = collectors.map(renderCard).join("");
+    }
+  } else if (currentPage === "svc") {
+    renderSvcView(svc);
+  } else if (currentPage === "media") {
+    renderMediaView(svc);
+  }
+}
+
+if (pageNav) {
+  pageNav.addEventListener("click", (event) => {
+    const btn = event.target.closest(".page-tab");
+    if (!btn || !pageNav.contains(btn)) return;
+    setPage(btn.dataset.page);
+  });
+}
+
+window.addEventListener("hashchange", () => {
+  setPage(pageFromHash(), { updateHash: false });
+});
+
+/* Klawiatura opcjonalna: 1/2/3 lub strzałki — wygodne przy debugu bez dotyku. */
+document.addEventListener("keydown", (event) => {
+  if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+  const key = event.key;
+  if (key === "1") setPage("hub");
+  else if (key === "2") setPage("svc");
+  else if (key === "3") setPage("media");
+  else if (key === "ArrowLeft" || key === "ArrowRight") {
+    const i = PAGES.indexOf(currentPage);
+    const delta = key === "ArrowRight" ? 1 : -1;
+    setPage(PAGES[(i + delta + PAGES.length) % PAGES.length]);
+  }
+});
+
 /* ---------- dashboard ---------- */
 
 function setOverall(status) {
@@ -505,21 +694,16 @@ async function refreshDashboard() {
     const response = await fetch("/api/dashboard", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
+    lastDashboard = data;
 
     setOverall(data.status);
-
-    const collectors = data.collectors || [];
-    if (!collectors.length) {
-      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
-      return;
-    }
-    grid.innerHTML = collectors.map(renderCard).join("");
+    paintPage(data);
     footUptimeEl.textContent = `UP ${data.uptime || "—"}`;
     footModeEl.textContent = "LIVE";
   } catch (err) {
     setOverall("error");
     footModeEl.textContent = "DOWN";
-    if (!grid.children.length) {
+    if (currentPage === "hub" && grid && !grid.children.length) {
       grid.innerHTML = `<div class="empty-state">link down · ${esc(err.message)}</div>`;
     }
     console.warn("dashboard refresh failed:", err);
@@ -566,6 +750,9 @@ grid.addEventListener("click", (event) => {
 
 tickClock();
 setInterval(tickClock, 1000);
+
+/* Start na hashu (np. kiosk z zakładką #svc) */
+setPage(pageFromHash(), { updateHash: true });
 
 /* Codec boot splash — CONNECTING → LINK ESTABLISHED → fade out */
 function runBootSplash() {

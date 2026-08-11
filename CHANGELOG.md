@@ -1,5 +1,12 @@
 # Changelog — Outer Haven Hub
 
+## 2026-08-12 — strony HUB / SVC / MEDIA + collector services
+
+- UI: segment `HUB | SVC | MEDIA` (hash `#hub`/`#svc`/`#media`), ten sam shell kiosku
+- Collector `services`: `systemctl is-active` dla curated jednostek (Jellyfin, Samba, …)
+- SVC = siatka wszystkich jednostek; MEDIA = Jellyfin + SMB + note/URL z config
+- Demo: `DemoServices` w `HUB_DEMO=1`
+
 ## 2026-08-08 — cyberpunk HUD + wykresy wszędzie
 
 - Font: JetBrains Mono Nerd Font lokalnie (`frontend/fonts/`), większa typografia

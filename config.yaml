@@ -7,6 +7,7 @@ enabled_collectors:
   - wireguard
   - system
   - smart
+  - services
   # - nextcloud   ← odkomentuj, gdy dodasz ten moduł
 
 collectors:
@@ -30,3 +31,36 @@ collectors:
     peer_names:
       # "YOUR_PEER_PUBLIC_KEY_BASE64=": "laptop"
       # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"
+
+  services:
+    # Jednostki systemd na stronach SVC (wszystkie) i MEDIA (media: true).
+    # note = tekstowy URL/port (bez sekretów) — tylko etykieta na ekranie.
+    units:
+      - id: jellyfin
+        unit: jellyfin.service
+        label: JELLYFIN
+        media: true
+        note: "http://mother-base:8096"
+      - id: samba
+        unit: smbd.service
+        label: SMB
+        media: true
+        note: "smb://mother-base"
+      - id: nmbd
+        unit: nmbd.service
+        label: NMBD
+      - id: wsdd2
+        unit: wsdd2.service
+        label: WSDD2
+      - id: caddy
+        unit: caddy.service
+        label: CADDY
+      - id: pihole
+        unit: pihole-FTL.service
+        label: PIHOLE
+      - id: unbound
+        unit: unbound.service
+        label: UNBOUND
+      - id: hub
+        unit: outer-haven-hub.service
+        label: HUB

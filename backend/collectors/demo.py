@@ -7,7 +7,7 @@ import random
 import time
 from collections import deque
 
-from .base import Collector, STATUS_OK, STATUS_WARNING
+from .base import Collector, STATUS_ERROR, STATUS_OK, STATUS_WARNING
 
 HISTORY_LEN = 36
 
@@ -220,4 +220,85 @@ class DemoSmart(Collector):
         return STATUS_OK
 
 
-DEMO_COLLECTORS: list[Collector] = [DemoPihole(), DemoWireguard(), DemoSystem(), DemoSmart()]
+class DemoServices(Collector):
+    """Sztuczne statusy systemd — HUB_DEMO, strony SVC / MEDIA."""
+
+    id = "services"
+    label = "SERVICES"
+    icon = "box"
+    refresh_interval = 5
+
+    # Stała lista jak w config.yaml — UI da się stylować bez Pi.
+    _UNITS = [
+        {"id": "jellyfin", "label": "JELLYFIN", "media": True,
+         "note": "http://mother-base:8096"},
+        {"id": "samba", "label": "SMB", "media": True, "note": "smb://mother-base"},
+        {"id": "nmbd", "label": "NMBD"},
+        {"id": "wsdd2", "label": "WSDD2"},
+        {"id": "caddy", "label": "CADDY"},
+        {"id": "pihole", "label": "PIHOLE"},
+        {"id": "unbound", "label": "UNBOUND"},
+        {"id": "hub", "label": "HUB"},
+    ]
+
+    def __init__(self, settings: dict | None = None) -> None:
+        super().__init__(settings)
+        # Lekka fluktuacja: większość UP, czasem jeden DOWN.
+        self._down_id: str | None = None
+        self._tick = 0
+
+    async def collect(self) -> dict:
+        self._tick += 1
+        if self._tick % 8 == 0:
+            self._down_id = random.choice(["nmbd", "wsdd2", None, None])
+        metrics: list[dict] = []
+        unit_states: list[dict] = []
+        for u in self._UNITS:
+            active = u["id"] != self._down_id
+            state = STATUS_OK if active else STATUS_ERROR
+            unit_states.append({
+                "id": u["id"],
+                "state": "active" if active else "inactive",
+                "metric_state": state,
+                "critical": True,
+            })
+            metrics.append({
+                "id": u["id"],
+                "label": u["label"],
+                "value": "ACTIVE" if active else "DOWN",
+                "type": "status",
+                "state": state,
+                "note": u.get("note") or "",
+                "media": bool(u.get("media")),
+            })
+        up = sum(1 for s in unit_states if s["state"] == "active")
+        down = len(unit_states) - up
+        summary = [
+            {"label": "UP", "value": up, "type": "number", "state": STATUS_OK},
+            {
+                "label": "DOWN",
+                "value": down,
+                "type": "number",
+                "state": STATUS_ERROR if down else STATUS_OK,
+            },
+        ]
+        return {
+            "metrics": summary + metrics,
+            "chart": None,
+            "_unit_states": unit_states,
+        }
+
+    def get_status(self, data: dict) -> str:
+        states = data.get("_unit_states") or []
+        if any(s["metric_state"] == STATUS_ERROR for s in states):
+            return STATUS_ERROR
+        return STATUS_OK
+
+
+DEMO_COLLECTORS: list[Collector] = [
+    DemoPihole(),
+    DemoWireguard(),
+    DemoSystem(),
+    DemoSmart(),
+    DemoServices(),
+]

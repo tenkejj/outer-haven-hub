@@ -12,6 +12,7 @@ import logging
 
 from .base import Collector
 from .pihole import PiholeCollector
+from .services import ServicesCollector
 from .smart import SmartCollector
 from .system import SystemCollector
 from .wireguard import WireguardCollector
@@ -26,6 +27,7 @@ ALL_COLLECTOR_CLASSES: list[type[Collector]] = [
     SmartCollector,
     SystemCollector,
     WireguardCollector,
+    ServicesCollector,
     # <- nowy collector dopisujesz tutaj (plus import wyżej)
 ]
 
