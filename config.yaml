@@ -1,6 +1,6 @@
 # Outer Haven Hub — konfiguracja włączonych źródeł danych.
 # Dodanie nowego collectora = dopisanie id poniżej + wpis w registry.py.
-# Kolejność na liście = kolejność kart na dashboardzie.
+# Kolejność na liście = kolejność kart na dashboardzie (HUB).
 
 enabled_collectors:
   - pihole
@@ -25,6 +25,10 @@ collectors:
     # Punkt montowania do metryki FREE (shutil.disk_usage).
     mount: "/"
 
+  system:
+    # Interfejs do NET IN/OUT (strona NET). eth0 typowe na Pi Ethernet.
+    iface: "eth0"
+
   wireguard:
     # Mapa klucz_publiczny → przyjazna nazwa na karcie.
     # Klucz bierzesz z `sudo wg show` (kolumna peer).
@@ -33,8 +37,9 @@ collectors:
       # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"
 
   services:
-    # Jednostki systemd na stronach SVC (wszystkie) i MEDIA (media: true).
-    # note = tekstowy URL/port (bez sekretów) — tylko etykieta na ekranie.
+    # Jednostki systemd — strona SVC (wszystkie) / MEDIA (media: true).
+    # critical: false → DOWN nie psuje zbiorczego statusu (np. bluetooth).
+    # note = tekstowy URL/port (bez sekretów).
     units:
       - id: jellyfin
         unit: jellyfin.service
@@ -49,6 +54,10 @@ collectors:
       - id: nmbd
         unit: nmbd.service
         label: NMBD
+      - id: winbind
+        unit: winbind.service
+        label: WINBIND
+        critical: false
       - id: wsdd2
         unit: wsdd2.service
         label: WSDD2
@@ -64,3 +73,25 @@ collectors:
       - id: hub
         unit: outer-haven-hub.service
         label: HUB
+      - id: ssh
+        unit: ssh.service
+        label: SSH
+      - id: nm
+        unit: NetworkManager.service
+        label: NETMGR
+      - id: avahi
+        unit: avahi-daemon.service
+        label: AVAHI
+        critical: false
+      - id: bluetooth
+        unit: bluetooth.service
+        label: BT
+        critical: false
+      - id: cron
+        unit: cron.service
+        label: CRON
+        critical: false
+      - id: smart
+        unit: smartmontools.service
+        label: SMARTD
+        critical: false

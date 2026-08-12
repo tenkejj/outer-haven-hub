@@ -4,12 +4,10 @@
   <meta charset="utf-8">
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <!-- Cache-bust: kiosk Chromium bywa uparty względem starego style.css -->
-  <link rel="stylesheet" href="style.css?v=pages-svc1">
+  <link rel="stylesheet" href="style.css?v=pages-max1">
 </head>
 <body>
   <div class="shell">
-    <!-- Codec boot — wewnątrz shell, żeby skalował się z canvasem 1024×600 -->
     <div id="boot-splash" class="boot-splash" aria-live="polite">
       <div class="boot-frame">
         <div class="boot-corner tl" aria-hidden="true"></div>
@@ -48,16 +46,47 @@
 
     <div class="rule" aria-hidden="true"></div>
 
-    <!-- Codec segment: HUB | SVC | MEDIA — hash #hub / #svc / #media -->
-    <nav class="page-nav" id="page-nav" role="tablist" aria-label="Pages">
+    <!-- Max tabs: overview + focused monitors (hash #hub … #media) -->
+    <nav class="page-nav page-nav--dense" id="page-nav" role="tablist" aria-label="Pages">
       <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">HUB</button>
+      <button type="button" class="page-tab" role="tab" data-page="dns" aria-selected="false">DNS</button>
+      <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">NET</button>
+      <button type="button" class="page-tab" role="tab" data-page="disk" aria-selected="false">DISK</button>
+      <button type="button" class="page-tab" role="tab" data-page="sys" aria-selected="false">SYS</button>
       <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">SVC</button>
       <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">MEDIA</button>
     </nav>
 
-    <!-- Trzy widoki w jednej powłoce (kiosk — bez pełnego przeładowania) -->
     <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
       <div id="dashboard-grid"></div>
+    </main>
+    <main id="view-dns" class="view" data-page="dns" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">DNS · PI-HOLE</span>
+        <span class="view-meta" id="dns-meta">—</span>
+      </div>
+      <div id="dns-grid" class="focus-grid"></div>
+    </main>
+    <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">NETWORK</span>
+        <span class="view-meta" id="net-meta">VPN · LAN</span>
+      </div>
+      <div id="net-grid" class="focus-grid focus-grid--split"></div>
+    </main>
+    <main id="view-disk" class="view" data-page="disk" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">STORAGE</span>
+        <span class="view-meta" id="disk-meta">SSD · SMART</span>
+      </div>
+      <div id="disk-grid" class="focus-grid"></div>
+    </main>
+    <main id="view-sys" class="view" data-page="sys" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">SYSTEM</span>
+        <span class="view-meta" id="sys-meta">CPU · THROTTLE · LOAD</span>
+      </div>
+      <div id="sys-grid" class="focus-grid"></div>
     </main>
     <main id="view-svc" class="view" data-page="svc" hidden aria-live="polite">
       <div class="view-head">
@@ -83,6 +112,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=pages-svc1"></script>
+  <script src="app.js?v=pages-max1"></script>
 </body>
 </html>

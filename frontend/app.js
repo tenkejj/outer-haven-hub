@@ -1,19 +1,30 @@
 /* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
    Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
 
-   Strony (ten sam shell, bez reload): HUB | SVC | MEDIA — hash #hub/#svc/#media.
-   Collector `services` nie trafia na siatkę HUB; SVC/MEDIA budują z jego metryk. */
+   Strony: HUB | DNS | NET | DISK | SYS | SVC | MEDIA
+   (#hub … #media). Collector `services` omija siatkę HUB. */
 
 const POLL_MS = 5000;
 /* Status na karcie (krótko) vs badge w topbarze (MGS-owo, bez 0x…). */
 const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
 const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
-const PAGES = ["hub", "svc", "media"];
+const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media"];
+const HUB_SYSTEM_LABELS = new Set(["CPU", "RAM", "TEMP"]);
+const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]);
+const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
 
 const grid = document.getElementById("dashboard-grid");
+const dnsGrid = document.getElementById("dns-grid");
+const netGrid = document.getElementById("net-grid");
+const diskGrid = document.getElementById("disk-grid");
+const sysGrid = document.getElementById("sys-grid");
 const svcGrid = document.getElementById("svc-grid");
 const mediaGrid = document.getElementById("media-grid");
+const dnsMeta = document.getElementById("dns-meta");
+const netMeta = document.getElementById("net-meta");
+const diskMeta = document.getElementById("disk-meta");
+const sysMeta = document.getElementById("sys-meta");
 const svcMeta = document.getElementById("svc-meta");
 const mediaMeta = document.getElementById("media-meta");
 const pageNav = document.getElementById("page-nav");
@@ -491,10 +502,14 @@ function renderCard(collector, index) {
   </article>`;
 }
 
-/* ---------- SVC / MEDIA (collector services) ---------- */
+/* ---------- SVC / MEDIA / focus pages ---------- */
+
+function findCollector(data, id) {
+  return (data.collectors || []).find((c) => c.id === id) || null;
+}
 
 function servicesCollector(data) {
-  return (data.collectors || []).find((c) => c.id === "services") || null;
+  return findCollector(data, "services");
 }
 
 function serviceStatusMetrics(collector) {
@@ -506,6 +521,23 @@ function serviceSummary(collector) {
   const up = nums.find((m) => String(m.label).toUpperCase() === "UP");
   const down = nums.find((m) => String(m.label).toUpperCase() === "DOWN");
   return { up: up ? up.value : "—", down: down ? down.value : "—" };
+}
+
+function withMetrics(collector, labelSet) {
+  if (!collector) return null;
+  return {
+    ...collector,
+    metrics: (collector.metrics || []).filter((m) =>
+      labelSet.has(String(m.label || "").toUpperCase()),
+    ),
+  };
+}
+
+function metricValue(collector, label) {
+  const m = (collector?.metrics || []).find(
+    (x) => String(x.label).toUpperCase() === label,
+  );
+  return m ? m.value : "—";
 }
 
 /** Karta jednostki systemd — ten sam chrome co HUB (pasek statusu, L-feel). */
@@ -586,6 +618,83 @@ function renderMediaView(collector) {
   }).join("");
 }
 
+function renderFocusCollector(container, collector, emptyMsg) {
+  if (!container) return;
+  if (!collector) {
+    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
+    return;
+  }
+  if (collector.error && !(collector.metrics || []).length) {
+    container.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
+    return;
+  }
+  container.innerHTML = renderCard(collector);
+}
+
+function renderDnsView(data) {
+  const c = findCollector(data, "pihole");
+  if (dnsMeta) {
+    dnsMeta.textContent = c
+      ? `${STATUS_CODE[c.status] || "ERR"} · ${metricValue(c, "CLIENTS")} CLI`
+      : "NO DATA";
+  }
+  renderFocusCollector(dnsGrid, c, "pihole offline");
+}
+
+function renderDiskView(data) {
+  const c = findCollector(data, "smart");
+  if (diskMeta) {
+    diskMeta.textContent = c
+      ? `${STATUS_CODE[c.status] || "ERR"} · FREE ${metricValue(c, "FREE")}`
+      : "NO DATA";
+  }
+  renderFocusCollector(diskGrid, c, "ssd offline");
+}
+
+function renderSysView(data) {
+  const raw = findCollector(data, "system");
+  const c = withMetrics(raw, SYS_EXTRA_LABELS);
+  if (sysMeta) {
+    sysMeta.textContent = c
+      ? `THRTL ${metricValue(c, "THRTL")} · LOAD ${metricValue(c, "LOAD")}`
+      : "NO DATA";
+  }
+  renderFocusCollector(sysGrid, c, "system offline");
+}
+
+function renderLanCard(systemCollector) {
+  const lan = withMetrics(systemCollector, NET_LAN_LABELS);
+  if (!lan || !(lan.metrics || []).length) {
+    return `<div class="empty-state">lan offline</div>`;
+  }
+  // Osobna etykieta karty — nie mylić z SYSTEM PI na HUB.
+  return renderCard({
+    ...lan,
+    id: "lan",
+    label: "LAN IFACE",
+    icon: "cpu",
+    chart: null,
+    actions: [],
+  });
+}
+
+function renderNetView(data) {
+  if (!netGrid) return;
+  const vpn = findCollector(data, "wireguard");
+  const sys = findCollector(data, "system");
+  if (netMeta) {
+    const iface = metricValue(sys, "IFACE");
+    netMeta.textContent = vpn
+      ? `${STATUS_CODE[vpn.status] || "ERR"} · ${iface}`
+      : `LAN · ${iface}`;
+  }
+  const parts = [];
+  if (vpn) parts.push(renderCard(vpn));
+  else parts.push(`<div class="empty-state">vpn offline</div>`);
+  parts.push(renderLanCard(sys));
+  netGrid.innerHTML = parts.join("");
+}
+
 /* ---------- nawigacja stron ---------- */
 
 function pageFromHash() {
@@ -628,12 +737,22 @@ function setPage(page, options = {}) {
 function paintPage(data) {
   const svc = servicesCollector(data);
   if (currentPage === "hub") {
-    const collectors = (data.collectors || []).filter((c) => c.id !== "services");
+    const collectors = (data.collectors || [])
+      .filter((c) => c.id !== "services")
+      .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
     if (!collectors.length) {
       grid.innerHTML = `<div class="empty-state">no active modules</div>`;
     } else {
       grid.innerHTML = collectors.map(renderCard).join("");
     }
+  } else if (currentPage === "dns") {
+    renderDnsView(data);
+  } else if (currentPage === "net") {
+    renderNetView(data);
+  } else if (currentPage === "disk") {
+    renderDiskView(data);
+  } else if (currentPage === "sys") {
+    renderSysView(data);
   } else if (currentPage === "svc") {
     renderSvcView(svc);
   } else if (currentPage === "media") {
@@ -653,13 +772,12 @@ window.addEventListener("hashchange", () => {
   setPage(pageFromHash(), { updateHash: false });
 });
 
-/* Klawiatura opcjonalna: 1/2/3 lub strzałki — wygodne przy debugu bez dotyku. */
+/* Klawiatura: 1–7 lub strzałki — debug bez dotyku. */
 document.addEventListener("keydown", (event) => {
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   const key = event.key;
-  if (key === "1") setPage("hub");
-  else if (key === "2") setPage("svc");
-  else if (key === "3") setPage("media");
+  const digit = key >= "1" && key <= "7" ? Number(key) - 1 : -1;
+  if (digit >= 0 && digit < PAGES.length) setPage(PAGES[digit]);
   else if (key === "ArrowLeft" || key === "ArrowRight") {
     const i = PAGES.indexOf(currentPage);
     const delta = key === "ArrowRight" ? 1 : -1;
@@ -745,6 +863,13 @@ async function runAction(collectorId, actionId, button) {
 grid.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button || !grid.contains(button)) return;
+  runAction(button.dataset.collector, button.dataset.action, button);
+});
+
+/* Akcje też na stronach fokusowych (DNS ma przyciski Pi-hole). */
+document.querySelector(".shell")?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button || grid?.contains(button)) return;
   runAction(button.dataset.collector, button.dataset.action, button);
 });
 

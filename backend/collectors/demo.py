@@ -166,11 +166,19 @@ class DemoSystem(Collector):
         self._cpu.append(cpu)
         self._ram.append(ram)
         self._temp.append(temp)
+        rx = random.randint(8, 420)
+        tx = random.randint(4, 180)
         return {
             "metrics": [
                 {"label": "CPU", "value": f"{cpu}%", "type": "number", "state": STATUS_OK},
                 {"label": "RAM", "value": f"{ram}%", "type": "number", "state": STATUS_OK},
                 {"label": "TEMP", "value": f"{temp}°", "type": "number", "state": STATUS_OK},
+                {"label": "LOAD", "value": f"{random.uniform(0.1, 1.4):.2f}", "type": "number", "state": STATUS_OK},
+                {"label": "SWAP", "value": "OFF", "type": "number", "state": STATUS_OK},
+                {"label": "THRTL", "value": "OK", "type": "status", "state": STATUS_OK},
+                {"label": "IFACE", "value": "eth0", "type": "text", "state": STATUS_OK},
+                {"label": "NET IN", "value": f"{rx}K/s", "type": "number", "state": STATUS_OK},
+                {"label": "NET OUT", "value": f"{tx}K/s", "type": "number", "state": STATUS_OK},
             ],
             "chart": {
                 "type": "line",
@@ -234,11 +242,18 @@ class DemoServices(Collector):
          "note": "http://mother-base:8096"},
         {"id": "samba", "label": "SMB", "media": True, "note": "smb://mother-base"},
         {"id": "nmbd", "label": "NMBD"},
+        {"id": "winbind", "label": "WINBIND"},
         {"id": "wsdd2", "label": "WSDD2"},
         {"id": "caddy", "label": "CADDY"},
         {"id": "pihole", "label": "PIHOLE"},
         {"id": "unbound", "label": "UNBOUND"},
         {"id": "hub", "label": "HUB"},
+        {"id": "ssh", "label": "SSH"},
+        {"id": "nm", "label": "NETMGR"},
+        {"id": "avahi", "label": "AVAHI"},
+        {"id": "bluetooth", "label": "BT"},
+        {"id": "cron", "label": "CRON"},
+        {"id": "smart", "label": "SMARTD"},
     ]
 
     def __init__(self, settings: dict | None = None) -> None:

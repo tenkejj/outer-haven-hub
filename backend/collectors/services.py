@@ -29,11 +29,18 @@ DEFAULT_UNITS: list[dict[str, Any]] = [
     {"id": "samba", "unit": "smbd.service", "label": "SMB", "media": True,
      "note": "smb://mother-base"},
     {"id": "nmbd", "unit": "nmbd.service", "label": "NMBD"},
+    {"id": "winbind", "unit": "winbind.service", "label": "WINBIND", "critical": False},
     {"id": "wsdd2", "unit": "wsdd2.service", "label": "WSDD2"},
     {"id": "caddy", "unit": "caddy.service", "label": "CADDY"},
     {"id": "pihole", "unit": "pihole-FTL.service", "label": "PIHOLE"},
     {"id": "unbound", "unit": "unbound.service", "label": "UNBOUND"},
     {"id": "hub", "unit": "outer-haven-hub.service", "label": "HUB"},
+    {"id": "ssh", "unit": "ssh.service", "label": "SSH"},
+    {"id": "nm", "unit": "NetworkManager.service", "label": "NETMGR"},
+    {"id": "avahi", "unit": "avahi-daemon.service", "label": "AVAHI", "critical": False},
+    {"id": "bluetooth", "unit": "bluetooth.service", "label": "BT", "critical": False},
+    {"id": "cron", "unit": "cron.service", "label": "CRON", "critical": False},
+    {"id": "smart", "unit": "smartmontools.service", "label": "SMARTD", "critical": False},
 ]
 
 
