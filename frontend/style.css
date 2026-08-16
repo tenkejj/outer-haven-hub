@@ -286,17 +286,18 @@ body {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-transform: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .page-nav--dense .page-tab {
   min-height: 36px;
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.04em;
   padding: 0 2px;
+  text-transform: none;
 }
 
 .page-tab:last-child { border-right: 0; }
@@ -333,17 +334,18 @@ body {
 }
 
 .view-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.06em;
   color: var(--text-hi);
+  text-transform: none;
 }
 
 .view-meta {
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   color: var(--text-dim);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 /* ---------- grid ---------- */
@@ -363,7 +365,8 @@ body {
 }
 
 .svc-grid,
-.media-grid {
+.media-grid,
+.mc-grid {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
@@ -434,10 +437,10 @@ body {
 .svc-state[data-state="error"] .svc-value { color: var(--error); }
 
 .svc-sub {
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   color: var(--text-dim);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .svc-note {
@@ -454,6 +457,26 @@ body {
 .media-grid .svc-note {
   font-size: 14px;
   margin-top: 4px;
+}
+
+.mc-grid {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.mc-grid .svc-value {
+  font-size: 36px;
+}
+
+.mc-grid .svc-note {
+  font-size: 16px;
+  margin-top: 6px;
+}
+
+.mc-grid .svc-sub {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: none;
 }
 
 .card {

@@ -39,7 +39,7 @@ _THROTTLE_THERM = 1 << 2
 
 class SystemCollector(Collector):
     id = "system"
-    label = "SYSTEM PI"
+    label = "Raspberry Pi"
     icon = "cpu"
     refresh_interval = 5  # metryki systemowe są tanie w odczycie, mogą być "żywe"
 

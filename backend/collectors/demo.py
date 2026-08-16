@@ -38,11 +38,11 @@ class DemoPihole(Collector):
     def list_actions(self, data: dict) -> list[dict]:
         blocking_on = bool(data.get("_blocking_enabled", self._blocking))
         return [
-            {"id": "block_off_5", "label": "OFF 5M", "style": "warn", "group": "block"},
-            {"id": "block_off_15", "label": "OFF 15M", "style": "warn", "group": "block"},
+            {"id": "block_off_5", "label": "Pauza 5 min", "style": "warn", "group": "block"},
+            {"id": "block_off_15", "label": "Pauza 15 min", "style": "warn", "group": "block"},
             {
                 "id": "block_on",
-                "label": "ON",
+                "label": "Włącz",
                 "style": "accent" if not blocking_on else "default",
                 "group": "block",
             },
@@ -52,15 +52,15 @@ class DemoPihole(Collector):
         if action_id == "block_on":
             self._blocking = True
             self._off_until = 0.0
-            return {"message": "blocking enabled"}
+            return {"message": "Blokada włączona"}
         if action_id == "block_off_5":
             self._blocking = False
             self._off_until = time.monotonic() + 5 * 60
-            return {"message": "blocking disabled for 5 min"}
+            return {"message": "Blokada wyłączona na 5 min"}
         if action_id == "block_off_15":
             self._blocking = False
             self._off_until = time.monotonic() + 15 * 60
-            return {"message": "blocking disabled for 15 min"}
+            return {"message": "Blokada wyłączona na 15 min"}
         raise RuntimeError(f"unknown action: {action_id}")
 
     async def collect(self) -> dict:
@@ -113,7 +113,7 @@ class DemoPihole(Collector):
 
 class DemoWireguard(Collector):
     id = "wireguard"
-    label = "VPN"
+    label = "VPN (zdalny dostęp)"
     icon = "lock"
     refresh_interval = 5
 
@@ -149,7 +149,7 @@ class DemoWireguard(Collector):
 
 class DemoSystem(Collector):
     id = "system"
-    label = "SYSTEM PI"
+    label = "Raspberry Pi"
     icon = "cpu"
     refresh_interval = 5
 
@@ -196,7 +196,7 @@ class DemoSystem(Collector):
 
 class DemoSmart(Collector):
     id = "smart"
-    label = "SSD"
+    label = "Dysk"
     icon = "hard-drive"
     refresh_interval = 5
 
@@ -229,31 +229,34 @@ class DemoSmart(Collector):
 
 
 class DemoServices(Collector):
-    """Sztuczne statusy systemd — HUB_DEMO, strony SVC / MEDIA."""
+    """Sztuczne statusy systemd — HUB_DEMO, strony Usługi / Media / Minecraft."""
 
     id = "services"
-    label = "SERVICES"
+    label = "Usługi"
     icon = "box"
     refresh_interval = 5
 
     # Stała lista jak w config.yaml — UI da się stylować bez Pi.
     _UNITS = [
-        {"id": "jellyfin", "label": "JELLYFIN", "media": True,
+        {"id": "jellyfin", "label": "Filmy", "media": True,
          "note": "http://mother-base:8096"},
-        {"id": "samba", "label": "SMB", "media": True, "note": "smb://mother-base"},
-        {"id": "nmbd", "label": "NMBD"},
-        {"id": "winbind", "label": "WINBIND"},
-        {"id": "wsdd2", "label": "WSDD2"},
-        {"id": "caddy", "label": "CADDY"},
-        {"id": "pihole", "label": "PIHOLE"},
-        {"id": "unbound", "label": "UNBOUND"},
-        {"id": "hub", "label": "HUB"},
+        {"id": "samba", "label": "Udostępnianie plików", "media": True,
+         "note": "smb://mother-base"},
+        {"id": "minecraft", "label": "Minecraft", "game": True,
+         "note": "mother-base:25565", "critical": False},
+        {"id": "nmbd", "label": "Samba (nazwy)"},
+        {"id": "winbind", "label": "Winbind", "critical": False},
+        {"id": "wsdd2", "label": "Wykrywanie w sieci"},
+        {"id": "caddy", "label": "Strony WWW"},
+        {"id": "pihole", "label": "Blokada reklam"},
+        {"id": "unbound", "label": "DNS lokalny"},
+        {"id": "hub", "label": "Ten hub"},
         {"id": "ssh", "label": "SSH"},
-        {"id": "nm", "label": "NETMGR"},
-        {"id": "avahi", "label": "AVAHI"},
-        {"id": "bluetooth", "label": "BT"},
-        {"id": "cron", "label": "CRON"},
-        {"id": "smart", "label": "SMARTD"},
+        {"id": "nm", "label": "Sieć"},
+        {"id": "avahi", "label": "Wykrywanie (.local)", "critical": False},
+        {"id": "bluetooth", "label": "Bluetooth", "critical": False},
+        {"id": "cron", "label": "Harmonogram", "critical": False},
+        {"id": "smart", "label": "Monitoring dysku", "critical": False},
     ]
 
     def __init__(self, settings: dict | None = None) -> None:
@@ -265,7 +268,7 @@ class DemoServices(Collector):
     async def collect(self) -> dict:
         self._tick += 1
         if self._tick % 8 == 0:
-            self._down_id = random.choice(["nmbd", "wsdd2", None, None])
+            self._down_id = random.choice(["nmbd", "wsdd2", "minecraft", None, None])
         metrics: list[dict] = []
         unit_states: list[dict] = []
         for u in self._UNITS:
@@ -275,16 +278,17 @@ class DemoServices(Collector):
                 "id": u["id"],
                 "state": "active" if active else "inactive",
                 "metric_state": state,
-                "critical": True,
+                "critical": u.get("critical", True),
             })
             metrics.append({
                 "id": u["id"],
                 "label": u["label"],
-                "value": "ACTIVE" if active else "DOWN",
+                "value": "Działa" if active else "Wyłączony",
                 "type": "status",
                 "state": state,
                 "note": u.get("note") or "",
                 "media": bool(u.get("media")),
+                "game": bool(u.get("game")),
             })
         up = sum(1 for s in unit_states if s["state"] == "active")
         down = len(unit_states) - up

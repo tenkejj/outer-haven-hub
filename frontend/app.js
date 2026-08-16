@@ -1,18 +1,53 @@
 /* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
    Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
 
-   Strony: HUB | DNS | NET | DISK | SYS | SVC | MEDIA
-   (#hub … #media). Collector `services` omija siatkę HUB. */
+   Strony: Start | Reklamy | Sieć | Dysk | System | Usługi | Media | Minecraft
+   (#hub … #mc). Collector `services` omija siatkę Start. */
 
 const POLL_MS = 5000;
-/* Status na karcie (krótko) vs badge w topbarze (MGS-owo, bez 0x…). */
-const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
-const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
+/* Status na karcie (krótko) vs badge w topbarze — proste słowa. */
+const STATUS_CODE = { ok: "OK", warning: "UWAGA", error: "BŁĄD" };
+const STATUS_LABEL = { ok: "W PORZĄDKU", warning: "UWAGA", error: "PROBLEM" };
 const CHART_MAX_POINTS = 48;
-const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media"];
+const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media", "mc"];
+const PAGE_TITLE = {
+  hub: "Start",
+  dns: "Reklamy",
+  net: "Sieć",
+  disk: "Dysk",
+  sys: "System",
+  svc: "Usługi",
+  media: "Media",
+  mc: "Minecraft",
+};
 const HUB_SYSTEM_LABELS = new Set(["CPU", "RAM", "TEMP"]);
 const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]);
 const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
+
+/* Przyjazne etykiety metryk — backend nadal wysyła krótkie klucze (CPU, BLOCK…). */
+const METRIC_LABEL_PL = {
+  CPU: "Procesor",
+  RAM: "Pamięć",
+  TEMP: "Temperatura",
+  LOAD: "Obciążenie",
+  SWAP: "Swap",
+  THRTL: "Ograniczenie",
+  IFACE: "Interfejs",
+  "NET IN": "Pobieranie",
+  "NET OUT": "Wysyłanie",
+  TODAY: "Dziś",
+  BLOCKED: "Zablokowane",
+  "% BLOCK": "% zablokowanych",
+  TOTAL: "Razem",
+  CLIENTS: "Urządzenia",
+  QUERIES: "Zapytania",
+  BLOCK: "Blokada",
+  UP: "Działa",
+  DOWN: "Wyłączone",
+  PEERS: "Połączenia",
+  HEALTH: "Zdrowie",
+  FREE: "Wolne",
+};
 
 const grid = document.getElementById("dashboard-grid");
 const dnsGrid = document.getElementById("dns-grid");
@@ -21,12 +56,14 @@ const diskGrid = document.getElementById("disk-grid");
 const sysGrid = document.getElementById("sys-grid");
 const svcGrid = document.getElementById("svc-grid");
 const mediaGrid = document.getElementById("media-grid");
+const mcGrid = document.getElementById("mc-grid");
 const dnsMeta = document.getElementById("dns-meta");
 const netMeta = document.getElementById("net-meta");
 const diskMeta = document.getElementById("disk-meta");
 const sysMeta = document.getElementById("sys-meta");
 const svcMeta = document.getElementById("svc-meta");
 const mediaMeta = document.getElementById("media-meta");
+const mcMeta = document.getElementById("mc-meta");
 const pageNav = document.getElementById("page-nav");
 const footPageEl = document.getElementById("foot-page");
 const overallEl = document.getElementById("overall");
@@ -120,10 +157,15 @@ function piholeBlockMode(collector) {
 
 /* ---------- metryki ---------- */
 
+function friendlyMetricLabel(raw) {
+  const key = String(raw || "").toUpperCase();
+  return METRIC_LABEL_PL[key] || String(raw || "");
+}
+
 function renderMetric(metric) {
   const type = metric.type || "text";
   const state = metric.state || "";
-  const label = esc(metric.label);
+  const label = esc(friendlyMetricLabel(metric.label));
   const value = esc(metric.value);
 
   if (type === "number" || type === "percent") {
@@ -170,18 +212,18 @@ function renderMetric(metric) {
   </div>`;
 }
 
-/** Hero Pi-hole: status BLOCK — LED + jedno słowo (BLOCKING / PAUSED). */
+/** Hero Pi-hole: status BLOCK — LED + proste słowo (Blokuje / Pauza). */
 function renderBlockPlate(metric) {
   const state = metric.state || "ok";
   const raw = String(metric.value || "—").toUpperCase();
-  let word = "BLOCKING";
+  let word = "Blokuje";
   let timer = "";
   if (raw === "ON" || raw.startsWith("ON ")) {
-    word = "BLOCKING";
+    word = "Blokuje";
   } else {
-    word = "PAUSED";
+    word = "Pauza";
     const m = raw.match(/(\d+)\s*M/);
-    if (m) timer = `${m[1]}M`;
+    if (m) timer = `${m[1]} min`;
     else if (raw.includes("OFF")) timer = "—";
   }
   const timerHtml = timer
@@ -494,15 +536,15 @@ function renderCard(collector, index) {
   const layoutClass = isHero ? " card--hero" : "";
   return `<article class="card${layoutClass}" data-id="${esc(collector.id)}" data-status="${esc(status)}">
     <header class="card-head">
-      <span class="card-index">0x${idx}</span>
+      <span class="card-index">${idx}</span>
       <span class="card-title">${esc(collector.label)}</span>
-      <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
+      <span class="card-code">${STATUS_CODE[status] || "BŁĄD"}</span>
     </header>
     <div class="card-body${isHero ? " card-body--hero" : ""}">${body}</div>
   </article>`;
 }
 
-/* ---------- SVC / MEDIA / focus pages ---------- */
+/* ---------- Usługi / Media / Minecraft / focus pages ---------- */
 
 function findCollector(data, id) {
   return (data.collectors || []).find((c) => c.id === id) || null;
@@ -540,7 +582,7 @@ function metricValue(collector, label) {
   return m ? m.value : "—";
 }
 
-/** Karta jednostki systemd — ten sam chrome co HUB (pasek statusu, L-feel). */
+/** Karta jednostki systemd — ten sam chrome co Start (pasek statusu, L-feel). */
 function renderServiceCard(metric, index, options = {}) {
   const status = metric.state || "error";
   const idx = String(index + 1).padStart(2, "0");
@@ -552,9 +594,9 @@ function renderServiceCard(metric, index, options = {}) {
     : "";
   return `<article class="card svc-card" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
     <header class="card-head">
-      <span class="card-index">0x${idx}</span>
+      <span class="card-index">${idx}</span>
       <span class="card-title">${esc(metric.label)}</span>
-      <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
+      <span class="card-code">${STATUS_CODE[status] || "BŁĄD"}</span>
     </header>
     <div class="card-body svc-card-body">
       <div class="svc-state" data-state="${esc(status)}">
@@ -570,20 +612,20 @@ function renderServiceCard(metric, index, options = {}) {
 function renderSvcView(collector) {
   if (!svcGrid) return;
   if (!collector) {
-    svcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    if (svcMeta) svcMeta.textContent = "NO DATA";
+    svcGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
+    if (svcMeta) svcMeta.textContent = "Brak danych";
     return;
   }
   if (collector.error && !serviceStatusMetrics(collector).length) {
     svcGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    if (svcMeta) svcMeta.textContent = "ERR";
+    if (svcMeta) svcMeta.textContent = "Błąd";
     return;
   }
   const units = serviceStatusMetrics(collector);
   const sum = serviceSummary(collector);
-  if (svcMeta) svcMeta.textContent = `UP ${sum.up} · DOWN ${sum.down}`;
+  if (svcMeta) svcMeta.textContent = `Działa ${sum.up} · Wyłączone ${sum.down}`;
   if (!units.length) {
-    svcGrid.innerHTML = `<div class="empty-state">no units</div>`;
+    svcGrid.innerHTML = `<div class="empty-state">Brak usług w konfiguracji</div>`;
     return;
   }
   svcGrid.innerHTML = units.map((m, i) => renderServiceCard(m, i)).join("");
@@ -592,36 +634,60 @@ function renderSvcView(collector) {
 function renderMediaView(collector) {
   if (!mediaGrid) return;
   if (!collector) {
-    mediaGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    mediaGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
     return;
   }
   const units = serviceStatusMetrics(collector).filter((m) => {
     if (m.media) return true;
     const id = String(m.id || "").toLowerCase();
-    const label = String(m.label || "").toUpperCase();
-    return id === "jellyfin" || id === "samba" || label === "JELLYFIN" || label === "SMB";
+    return id === "jellyfin" || id === "samba";
   });
   if (!units.length) {
-    mediaGrid.innerHTML = `<div class="empty-state">no media units</div>`;
+    mediaGrid.innerHTML = `<div class="empty-state">Brak usług mediów</div>`;
     return;
   }
   const allUp = units.every((m) => m.state === "ok");
   if (mediaMeta) {
-    mediaMeta.textContent = allUp ? "LINK READY" : "CHECK UNITS";
+    mediaMeta.textContent = allUp ? "Wszystko działa" : "Sprawdź usługi";
   }
   mediaGrid.innerHTML = units.map((m, i) => {
-    const sub = String(m.id || m.label).toLowerCase() === "samba"
-      || String(m.label).toUpperCase() === "SMB"
-      ? "SAMBA SHARE"
-      : "STREAM";
+    const id = String(m.id || "").toLowerCase();
+    const sub = id === "samba" ? "Udostępnianie w sieci" : "Odtwarzanie filmów";
     return renderServiceCard(m, i, { showNote: true, subtitle: sub });
   }).join("");
+}
+
+function renderMcView(collector) {
+  if (!mcGrid) return;
+  if (!collector) {
+    mcGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
+    if (mcMeta) mcMeta.textContent = "Brak danych";
+    return;
+  }
+  const units = serviceStatusMetrics(collector).filter((m) => {
+    if (m.game) return true;
+    return String(m.id || "").toLowerCase() === "minecraft";
+  });
+  if (!units.length) {
+    mcGrid.innerHTML = `<div class="empty-state">Dodaj minecraft.service w config.yaml (game: true)</div>`;
+    if (mcMeta) mcMeta.textContent = "Nie skonfigurowano";
+    return;
+  }
+  const m = units[0];
+  const up = m.state === "ok";
+  if (mcMeta) {
+    mcMeta.textContent = up ? "Serwer włączony" : "Serwer wyłączony";
+  }
+  mcGrid.innerHTML = units.map((unit, i) => renderServiceCard(unit, i, {
+    showNote: true,
+    subtitle: up ? "Można wchodzić do gry" : "Uruchom: sudo systemctl start minecraft",
+  })).join("");
 }
 
 function renderFocusCollector(container, collector, emptyMsg) {
   if (!container) return;
   if (!collector) {
-    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
+    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "Brak danych")}</div>`;
     return;
   }
   if (collector.error && !(collector.metrics || []).length) {
@@ -635,20 +701,20 @@ function renderDnsView(data) {
   const c = findCollector(data, "pihole");
   if (dnsMeta) {
     dnsMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "ERR"} · ${metricValue(c, "CLIENTS")} CLI`
-      : "NO DATA";
+      ? `${STATUS_CODE[c.status] || "BŁĄD"} · ${metricValue(c, "CLIENTS")} urządzeń`
+      : "Brak danych";
   }
-  renderFocusCollector(dnsGrid, c, "pihole offline");
+  renderFocusCollector(dnsGrid, c, "Pi-hole niedostępny");
 }
 
 function renderDiskView(data) {
   const c = findCollector(data, "smart");
   if (diskMeta) {
     diskMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "ERR"} · FREE ${metricValue(c, "FREE")}`
-      : "NO DATA";
+      ? `${STATUS_CODE[c.status] || "BŁĄD"} · wolne ${metricValue(c, "FREE")}`
+      : "Brak danych";
   }
-  renderFocusCollector(diskGrid, c, "ssd offline");
+  renderFocusCollector(diskGrid, c, "Dysk niedostępny");
 }
 
 function renderSysView(data) {
@@ -656,22 +722,22 @@ function renderSysView(data) {
   const c = withMetrics(raw, SYS_EXTRA_LABELS);
   if (sysMeta) {
     sysMeta.textContent = c
-      ? `THRTL ${metricValue(c, "THRTL")} · LOAD ${metricValue(c, "LOAD")}`
-      : "NO DATA";
+      ? `Ograniczenie ${metricValue(c, "THRTL")} · obciążenie ${metricValue(c, "LOAD")}`
+      : "Brak danych";
   }
-  renderFocusCollector(sysGrid, c, "system offline");
+  renderFocusCollector(sysGrid, c, "System niedostępny");
 }
 
 function renderLanCard(systemCollector) {
   const lan = withMetrics(systemCollector, NET_LAN_LABELS);
   if (!lan || !(lan.metrics || []).length) {
-    return `<div class="empty-state">lan offline</div>`;
+    return `<div class="empty-state">LAN niedostępny</div>`;
   }
-  // Osobna etykieta karty — nie mylić z SYSTEM PI na HUB.
+  // Osobna etykieta karty — nie mylić z Raspberry Pi na Start.
   return renderCard({
     ...lan,
     id: "lan",
-    label: "LAN IFACE",
+    label: "Sieć lokalna",
     icon: "cpu",
     chart: null,
     actions: [],
@@ -685,12 +751,12 @@ function renderNetView(data) {
   if (netMeta) {
     const iface = metricValue(sys, "IFACE");
     netMeta.textContent = vpn
-      ? `${STATUS_CODE[vpn.status] || "ERR"} · ${iface}`
+      ? `${STATUS_CODE[vpn.status] || "BŁĄD"} · ${iface}`
       : `LAN · ${iface}`;
   }
   const parts = [];
   if (vpn) parts.push(renderCard(vpn));
-  else parts.push(`<div class="empty-state">vpn offline</div>`);
+  else parts.push(`<div class="empty-state">VPN niedostępny</div>`);
   parts.push(renderLanCard(sys));
   netGrid.innerHTML = parts.join("");
 }
@@ -720,7 +786,7 @@ function setPage(page, options = {}) {
     });
   }
 
-  if (footPageEl) footPageEl.textContent = next.toUpperCase();
+  if (footPageEl) footPageEl.textContent = PAGE_TITLE[next] || next;
 
   if (options.updateHash !== false) {
     const want = `#${next}`;
@@ -741,7 +807,7 @@ function paintPage(data) {
       .filter((c) => c.id !== "services")
       .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
     if (!collectors.length) {
-      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+      grid.innerHTML = `<div class="empty-state">Brak aktywnych modułów</div>`;
     } else {
       grid.innerHTML = collectors.map(renderCard).join("");
     }
@@ -757,6 +823,8 @@ function paintPage(data) {
     renderSvcView(svc);
   } else if (currentPage === "media") {
     renderMediaView(svc);
+  } else if (currentPage === "mc") {
+    renderMcView(svc);
   }
 }
 
@@ -772,11 +840,11 @@ window.addEventListener("hashchange", () => {
   setPage(pageFromHash(), { updateHash: false });
 });
 
-/* Klawiatura: 1–7 lub strzałki — debug bez dotyku. */
+/* Klawiatura: 1–8 lub strzałki — debug bez dotyku. */
 document.addEventListener("keydown", (event) => {
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   const key = event.key;
-  const digit = key >= "1" && key <= "7" ? Number(key) - 1 : -1;
+  const digit = key >= "1" && key <= "8" ? Number(key) - 1 : -1;
   if (digit >= 0 && digit < PAGES.length) setPage(PAGES[digit]);
   else if (key === "ArrowLeft" || key === "ArrowRight") {
     const i = PAGES.indexOf(currentPage);
@@ -816,13 +884,13 @@ async function refreshDashboard() {
 
     setOverall(data.status);
     paintPage(data);
-    footUptimeEl.textContent = `UP ${data.uptime || "—"}`;
-    footModeEl.textContent = "LIVE";
+    footUptimeEl.textContent = `Działa ${data.uptime || "—"}`;
+    footModeEl.textContent = "NA ŻYWO";
   } catch (err) {
     setOverall("error");
     footModeEl.textContent = "DOWN";
     if (currentPage === "hub" && grid && !grid.children.length) {
-      grid.innerHTML = `<div class="empty-state">link down · ${esc(err.message)}</div>`;
+      grid.innerHTML = `<div class="empty-state">Brak połączenia · ${esc(err.message)}</div>`;
     }
     console.warn("dashboard refresh failed:", err);
   }
@@ -876,10 +944,10 @@ document.querySelector(".shell")?.addEventListener("click", (event) => {
 tickClock();
 setInterval(tickClock, 1000);
 
-/* Start na hashu (np. kiosk z zakładką #svc) */
+/* Start na hashu (np. kiosk z zakładką #mc) */
 setPage(pageFromHash(), { updateHash: true });
 
-/* Codec boot splash — CONNECTING → LINK ESTABLISHED → fade out */
+/* Krótki splash startowy → fade out */
 function runBootSplash() {
   const splash = document.getElementById("boot-splash");
   const label = document.getElementById("boot-label");
@@ -894,7 +962,7 @@ function runBootSplash() {
   setInterval(refreshDashboard, POLL_MS);
 
   setTimeout(() => {
-    label.textContent = "LINK ESTABLISHED";
+    label.textContent = "Połączono";
     label.classList.add("is-ok");
     splash.classList.add("is-linked");
   }, 900);

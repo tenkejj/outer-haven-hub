@@ -116,12 +116,12 @@ class PiholeCollector(Collector):
         # Stały zestaw — krótkie etykiety pod duże cele dotykowe na 7".
         blocking_on = bool(data.get("_blocking_enabled", True))
         return [
-            {"id": "block_off_5", "label": "OFF 5M", "style": "warn", "group": "block"},
-            {"id": "block_off_15", "label": "OFF 15M", "style": "warn", "group": "block"},
+            {"id": "block_off_5", "label": "Pauza 5 min", "style": "warn", "group": "block"},
+            {"id": "block_off_15", "label": "Pauza 15 min", "style": "warn", "group": "block"},
             {
                 "id": "block_on",
-                "label": "ON",
-                # Podświetl „ON” gdy blokowanie jest wyłączone — to wtedy
+                "label": "Włącz",
+                # Podświetl „Włącz” gdy blokowanie jest wyłączone — to wtedy
                 # główna akcja naprawcza na karcie.
                 "style": "accent" if not blocking_on else "default",
                 "group": "block",
@@ -141,9 +141,9 @@ class PiholeCollector(Collector):
         await self._request("POST", "/api/dns/blocking", json=body)
 
         if enabled:
-            return {"message": "blocking enabled"}
+            return {"message": "Blokada włączona"}
         minutes = (timer or 0) // 60
-        return {"message": f"blocking disabled for {minutes} min"}
+        return {"message": f"Blokada wyłączona na {minutes} min"}
 
     # ------------------------------------------------------------ kontrakt
 

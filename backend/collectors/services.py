@@ -1,15 +1,15 @@
-"""Collector statusu jednostek systemd (Jellyfin, Samba, Caddy, Pi-hole, …).
+"""Collector statusu jednostek systemd (Jellyfin, Samba, Minecraft, …).
 
 Czyta stan przez `systemctl is-active <unit>` — bez dodatkowych zależności
 i bez sudo (is-active działa dla zwykłego użytkownika na jednostkach
-systemowych). Frontend używa tych samych metryk na stronach SVC i MEDIA
-(MEDIA filtruje po fladze media / id jellyfin+samba).
+systemowych). Frontend używa tych samych metryk na stronach Usługi / Media /
+Minecraft (Media → flaga media, Minecraft → flaga game).
 
 Kształt metryk (kontrakt base.py):
   - number: UP / DOWN (podsumowanie)
   - status: jedna metryka na jednostkę (ACTIVE / DOWN / FAILED)
-  - opcjonalne pola poza speką (id, note, media) — frontend stron SVC/MEDIA
-    je czyta; generyczny render karty HUB i tak omija collector `services`.
+  - opcjonalne pola poza speką (id, note, media, game) — strony SVC/MEDIA/MC
+    je czytają; generyczny render karty HUB i tak omija collector `services`.
 """
 
 from __future__ import annotations
@@ -24,29 +24,33 @@ log = logging.getLogger("hub.services")
 
 # Domyślna lista — gdy config.yaml nie poda `units`. Kolejność = kolejność kart.
 DEFAULT_UNITS: list[dict[str, Any]] = [
-    {"id": "jellyfin", "unit": "jellyfin.service", "label": "JELLYFIN", "media": True,
+    {"id": "jellyfin", "unit": "jellyfin.service", "label": "Filmy", "media": True,
      "note": "http://mother-base:8096"},
-    {"id": "samba", "unit": "smbd.service", "label": "SMB", "media": True,
+    {"id": "samba", "unit": "smbd.service", "label": "Udostępnianie plików", "media": True,
      "note": "smb://mother-base"},
-    {"id": "nmbd", "unit": "nmbd.service", "label": "NMBD"},
-    {"id": "winbind", "unit": "winbind.service", "label": "WINBIND", "critical": False},
-    {"id": "wsdd2", "unit": "wsdd2.service", "label": "WSDD2"},
-    {"id": "caddy", "unit": "caddy.service", "label": "CADDY"},
-    {"id": "pihole", "unit": "pihole-FTL.service", "label": "PIHOLE"},
-    {"id": "unbound", "unit": "unbound.service", "label": "UNBOUND"},
-    {"id": "hub", "unit": "outer-haven-hub.service", "label": "HUB"},
+    {"id": "minecraft", "unit": "minecraft.service", "label": "Minecraft", "game": True,
+     "note": "mother-base:25565", "critical": False},
+    {"id": "nmbd", "unit": "nmbd.service", "label": "Samba (nazwy)"},
+    {"id": "winbind", "unit": "winbind.service", "label": "Winbind", "critical": False},
+    {"id": "wsdd2", "unit": "wsdd2.service", "label": "Wykrywanie w sieci"},
+    {"id": "caddy", "unit": "caddy.service", "label": "Strony WWW"},
+    {"id": "pihole", "unit": "pihole-FTL.service", "label": "Blokada reklam"},
+    {"id": "unbound", "unit": "unbound.service", "label": "DNS lokalny"},
+    {"id": "hub", "unit": "outer-haven-hub.service", "label": "Ten hub"},
     {"id": "ssh", "unit": "ssh.service", "label": "SSH"},
-    {"id": "nm", "unit": "NetworkManager.service", "label": "NETMGR"},
-    {"id": "avahi", "unit": "avahi-daemon.service", "label": "AVAHI", "critical": False},
-    {"id": "bluetooth", "unit": "bluetooth.service", "label": "BT", "critical": False},
-    {"id": "cron", "unit": "cron.service", "label": "CRON", "critical": False},
-    {"id": "smart", "unit": "smartmontools.service", "label": "SMARTD", "critical": False},
+    {"id": "nm", "unit": "NetworkManager.service", "label": "Sieć"},
+    {"id": "avahi", "unit": "avahi-daemon.service", "label": "Wykrywanie (.local)",
+     "critical": False},
+    {"id": "bluetooth", "unit": "bluetooth.service", "label": "Bluetooth", "critical": False},
+    {"id": "cron", "unit": "cron.service", "label": "Harmonogram", "critical": False},
+    {"id": "smart", "unit": "smartmontools.service", "label": "Monitoring dysku",
+     "critical": False},
 ]
 
 
 class ServicesCollector(Collector):
     id = "services"
-    label = "SERVICES"
+    label = "Usługi"
     icon = "box"
     refresh_interval = 10
 
@@ -80,18 +84,19 @@ class ServicesCollector(Collector):
 
     @staticmethod
     def _display_value(state: str) -> str:
+        # Proste słowa na ekran — nie żargon systemd.
         if state == "active":
-            return "ACTIVE"
+            return "Działa"
         if state == "failed":
-            return "FAILED"
+            return "Błąd"
         if state in ("inactive", "dead"):
-            return "DOWN"
+            return "Wyłączony"
         if state == "activating":
-            return "STARTING"
+            return "Startuje"
         if state == "deactivating":
-            return "STOPPING"
+            return "Zatrzymuje się"
         # unknown / not-found / …
-        return state.upper() or "DOWN"
+        return "Nieznany"
 
     @staticmethod
     def _metric_state(state: str) -> str:
@@ -111,9 +116,11 @@ class ServicesCollector(Collector):
             if not unit_name:
                 continue
             uid = str(entry.get("id") or unit_name)
-            label = str(entry.get("label") or uid).upper()
+            # Label zostawiamy jak w configu (czytelny tekst, nie UPPERCASE).
+            label = str(entry.get("label") or uid)
             note = str(entry.get("note") or entry.get("url") or "").strip()
             media = bool(entry.get("media"))
+            game = bool(entry.get("game"))
             # critical: false → DOWN nie psuje zbiorczego statusu karty
             critical = entry.get("critical", True)
 
@@ -132,9 +139,10 @@ class ServicesCollector(Collector):
                 "value": self._display_value(state),
                 "type": "status",
                 "state": mstate,
-                # Pola poza speką — strony SVC/MEDIA (patrz komentarz w module).
+                # Pola poza speką — strony Usługi / Media / Minecraft.
                 "note": note,
                 "media": media,
+                "game": game,
             })
 
         up = sum(1 for u in unit_states if u["state"] == "active")

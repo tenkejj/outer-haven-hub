@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="utf-8">
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=pages-max1">
+  <link rel="stylesheet" href="style.css?v=simple-mc1">
 </head>
 <body>
   <div class="shell">
@@ -14,7 +14,7 @@
         <div class="boot-corner tr" aria-hidden="true"></div>
         <div class="boot-corner bl" aria-hidden="true"></div>
         <div class="boot-corner br" aria-hidden="true"></div>
-        <div class="boot-label" id="boot-label">CODEC CONNECTING…</div>
+        <div class="boot-label" id="boot-label">Łączenie…</div>
         <div class="boot-bars" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span>
           <span></span><span></span><span></span>
@@ -46,15 +46,16 @@
 
     <div class="rule" aria-hidden="true"></div>
 
-    <!-- Max tabs: overview + focused monitors (hash #hub … #media) -->
-    <nav class="page-nav page-nav--dense" id="page-nav" role="tablist" aria-label="Pages">
-      <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">HUB</button>
-      <button type="button" class="page-tab" role="tab" data-page="dns" aria-selected="false">DNS</button>
-      <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">NET</button>
-      <button type="button" class="page-tab" role="tab" data-page="disk" aria-selected="false">DISK</button>
-      <button type="button" class="page-tab" role="tab" data-page="sys" aria-selected="false">SYS</button>
-      <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">SVC</button>
-      <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">MEDIA</button>
+    <!-- Proste nazwy stron (hash #hub … #mc) -->
+    <nav class="page-nav page-nav--dense" id="page-nav" role="tablist" aria-label="Strony">
+      <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">Start</button>
+      <button type="button" class="page-tab" role="tab" data-page="dns" aria-selected="false">Reklamy</button>
+      <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">Sieć</button>
+      <button type="button" class="page-tab" role="tab" data-page="disk" aria-selected="false">Dysk</button>
+      <button type="button" class="page-tab" role="tab" data-page="sys" aria-selected="false">System</button>
+      <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">Usługi</button>
+      <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">Media</button>
+      <button type="button" class="page-tab" role="tab" data-page="mc" aria-selected="false">Minecraft</button>
     </nav>
 
     <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
@@ -62,56 +63,63 @@
     </main>
     <main id="view-dns" class="view" data-page="dns" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">DNS · PI-HOLE</span>
+        <span class="view-title">Blokada reklam</span>
         <span class="view-meta" id="dns-meta">—</span>
       </div>
       <div id="dns-grid" class="focus-grid"></div>
     </main>
     <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">NETWORK</span>
-        <span class="view-meta" id="net-meta">VPN · LAN</span>
+        <span class="view-title">Sieć domowa</span>
+        <span class="view-meta" id="net-meta">VPN i LAN</span>
       </div>
       <div id="net-grid" class="focus-grid focus-grid--split"></div>
     </main>
     <main id="view-disk" class="view" data-page="disk" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">STORAGE</span>
-        <span class="view-meta" id="disk-meta">SSD · SMART</span>
+        <span class="view-title">Dysk</span>
+        <span class="view-meta" id="disk-meta">Wolne miejsce i zdrowie</span>
       </div>
       <div id="disk-grid" class="focus-grid"></div>
     </main>
     <main id="view-sys" class="view" data-page="sys" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">SYSTEM</span>
-        <span class="view-meta" id="sys-meta">CPU · THROTTLE · LOAD</span>
+        <span class="view-title">Raspberry Pi</span>
+        <span class="view-meta" id="sys-meta">Obciążenie i temperatura</span>
       </div>
       <div id="sys-grid" class="focus-grid"></div>
     </main>
     <main id="view-svc" class="view" data-page="svc" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">SERVICES</span>
+        <span class="view-title">Usługi</span>
         <span class="view-meta" id="svc-meta">—</span>
       </div>
       <div id="svc-grid" class="svc-grid"></div>
     </main>
     <main id="view-media" class="view" data-page="media" hidden aria-live="polite">
       <div class="view-head">
-        <span class="view-title">MEDIA</span>
-        <span class="view-meta" id="media-meta">JELLYFIN · SMB</span>
+        <span class="view-title">Media</span>
+        <span class="view-meta" id="media-meta">Filmy i pliki</span>
       </div>
       <div id="media-grid" class="media-grid"></div>
+    </main>
+    <main id="view-mc" class="view" data-page="mc" hidden aria-live="polite">
+      <div class="view-head">
+        <span class="view-title">Minecraft</span>
+        <span class="view-meta" id="mc-meta">Serwer Paper</span>
+      </div>
+      <div id="mc-grid" class="mc-grid"></div>
     </main>
 
     <footer class="foot">
       <span id="foot-uptime">UP —</span>
       <span class="foot-sep">·</span>
-      <span id="foot-mode">LIVE</span>
+      <span id="foot-mode">NA ŻYWO</span>
       <span class="foot-sep">·</span>
-      <span id="foot-page">HUB</span>
+      <span id="foot-page">Start</span>
     </footer>
   </div>
 
-  <script src="app.js?v=pages-max1"></script>
+  <script src="app.js?v=simple-mc1"></script>
 </body>
 </html>

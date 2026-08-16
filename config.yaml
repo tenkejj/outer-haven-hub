@@ -1,6 +1,6 @@
 # Outer Haven Hub — konfiguracja włączonych źródeł danych.
 # Dodanie nowego collectora = dopisanie id poniżej + wpis w registry.py.
-# Kolejność na liście = kolejność kart na dashboardzie (HUB).
+# Kolejność na liście = kolejność kart na stronie Start.
 
 enabled_collectors:
   - pihole
@@ -26,7 +26,7 @@ collectors:
     mount: "/"
 
   system:
-    # Interfejs do NET IN/OUT (strona NET). eth0 typowe na Pi Ethernet.
+    # Interfejs do ruchu sieciowego (strona Sieć). eth0 typowe na Pi Ethernet.
     iface: "eth0"
 
   wireguard:
@@ -37,61 +37,68 @@ collectors:
       # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"
 
   services:
-    # Jednostki systemd — strona SVC (wszystkie) / MEDIA (media: true).
-    # critical: false → DOWN nie psuje zbiorczego statusu (np. bluetooth).
-    # note = tekstowy URL/port (bez sekretów).
+    # Jednostki systemd — Usługi (wszystkie) / Media (media: true) / Minecraft (game: true).
+    # critical: false → wyłączenie nie psuje zbiorczego statusu (np. bluetooth, MC).
+    # note = adres / URL do pokazania na karcie (bez sekretów).
     units:
       - id: jellyfin
         unit: jellyfin.service
-        label: JELLYFIN
+        label: Filmy
         media: true
         note: "http://mother-base:8096"
       - id: samba
         unit: smbd.service
-        label: SMB
+        label: Udostępnianie plików
         media: true
         note: "smb://mother-base"
+      - id: minecraft
+        unit: minecraft.service
+        label: Minecraft
+        game: true
+        # Wyłączony serwer to normalne — nie czerwony alert całego huba.
+        critical: false
+        note: "mother-base:25565"
       - id: nmbd
         unit: nmbd.service
-        label: NMBD
+        label: Samba (nazwy)
       - id: winbind
         unit: winbind.service
-        label: WINBIND
+        label: Winbind
         critical: false
       - id: wsdd2
         unit: wsdd2.service
-        label: WSDD2
+        label: Wykrywanie w sieci
       - id: caddy
         unit: caddy.service
-        label: CADDY
+        label: Strony WWW
       - id: pihole
         unit: pihole-FTL.service
-        label: PIHOLE
+        label: Blokada reklam
       - id: unbound
         unit: unbound.service
-        label: UNBOUND
+        label: DNS lokalny
       - id: hub
         unit: outer-haven-hub.service
-        label: HUB
+        label: Ten hub
       - id: ssh
         unit: ssh.service
         label: SSH
       - id: nm
         unit: NetworkManager.service
-        label: NETMGR
+        label: Sieć
       - id: avahi
         unit: avahi-daemon.service
-        label: AVAHI
+        label: Wykrywanie (.local)
         critical: false
       - id: bluetooth
         unit: bluetooth.service
-        label: BT
+        label: Bluetooth
         critical: false
       - id: cron
         unit: cron.service
-        label: CRON
+        label: Harmonogram
         critical: false
       - id: smart
         unit: smartmontools.service
-        label: SMARTD
+        label: Monitoring dysku
         critical: false

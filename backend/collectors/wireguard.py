@@ -49,7 +49,7 @@ def _describe_handshake(timestamp: int, now: float) -> tuple[str, str]:
 
 class WireguardCollector(Collector):
     id = "wireguard"
-    label = "VPN"
+    label = "VPN (zdalny dostęp)"
     icon = "lock"
     refresh_interval = 10
 
