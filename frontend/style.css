@@ -1417,39 +1417,18 @@ body {
 /* Stała wysokość wykresu — Home overview cards */
 .card:not(.card--hero):not(.card--chart-focus) .chart-wrap {
   margin-top: auto;
-  flex: 0 0 124px;
-  height: 124px;
+  flex: 0 0 148px;
+  height: 148px;
   display: flex;
   flex-direction: column;
   padding-top: 5px;
   border-top: 1px solid var(--line);
 }
 
-.card:not(.card--hero):not(.card--chart-focus) .chart-legend {
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 8px 12px;
-  flex: 0 0 13px;
-  height: 13px;
-  margin-bottom: 4px;
-  font-size: 10px;
-  overflow: hidden;
-}
-
-.card:not(.card--hero):not(.card--chart-focus) .chart-legend-row {
-  width: auto;
-  flex: 0 0 auto;
-}
-
-.card:not(.card--hero):not(.card--chart-focus) .chart-legend-row .lg-name {
-  flex: 0 0 auto;
-}
-
 .card:not(.card--hero):not(.card--chart-focus) .chart {
-  flex: 0 0 98px;
-  height: 98px;
-  min-height: 98px;
+  flex: 0 0 120px;
+  height: 120px;
+  min-height: 120px;
 }
 
 /* Chart-focus cards (Host / VPN): chart MUST fill leftover height */
