@@ -386,9 +386,10 @@ function renderChart(chart, options = {}) {
   </div>`;
 }
 
-/** Compact SVG ring for a percent metric — visual first on Disk/Sys focus. */
+/** Compact SVG ring for a percent metric — visual first on Host. */
 function renderGauge(metric) {
-  const pct = Math.max(0, Math.min(100, Number(metric.value) || 0));
+  // Values often arrive as "46%" / "30%" — parseFloat, not Number().
+  const pct = Math.max(0, Math.min(100, parseFloat(String(metric.value)) || 0));
   const state = metric.state || "";
   const r = 34;
   const c = 2 * Math.PI * r;

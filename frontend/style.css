@@ -682,6 +682,12 @@ body {
   min-height: 44px;
 }
 
+.gauge-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .gauge {
   position: relative;
   width: 84px;
@@ -1355,12 +1361,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Dolne karty: metryki i wykres w równym balansie (nie dominuje ani jedno) */
-.card:not(.card--hero) .card-main {
+/* Dolne karty Home: metryki kompaktowo u góry, wykres ma stałą stopkę */
+.card:not(.card--hero):not(.card--chart-focus) .card-main {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 4px;
 }
 
@@ -1408,8 +1414,8 @@ body {
   gap: 4px 8px;
 }
 
-/* Stała wysokość wykresu — trochę wyższy plot, liczby nadal czytelne */
-.card:not(.card--hero) .chart-wrap {
+/* Stała wysokość wykresu — Home overview cards */
+.card:not(.card--hero):not(.card--chart-focus) .chart-wrap {
   margin-top: auto;
   flex: 0 0 124px;
   height: 124px;
@@ -1419,7 +1425,7 @@ body {
   border-top: 1px solid var(--line);
 }
 
-.card:not(.card--hero) .chart-legend {
+.card:not(.card--hero):not(.card--chart-focus) .chart-legend {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
@@ -1431,19 +1437,44 @@ body {
   overflow: hidden;
 }
 
-.card:not(.card--hero) .chart-legend-row {
+.card:not(.card--hero):not(.card--chart-focus) .chart-legend-row {
   width: auto;
   flex: 0 0 auto;
 }
 
-.card:not(.card--hero) .chart-legend-row .lg-name {
+.card:not(.card--hero):not(.card--chart-focus) .chart-legend-row .lg-name {
   flex: 0 0 auto;
 }
 
-.card:not(.card--hero) .chart {
+.card:not(.card--hero):not(.card--chart-focus) .chart {
   flex: 0 0 98px;
   height: 98px;
   min-height: 98px;
+}
+
+/* Chart-focus cards (Host / VPN): chart MUST fill leftover height */
+.card--chart-focus .focus-chart .chart-wrap,
+.card--chart-focus .focus-chart .chart-wrap--tall,
+.card--chart-focus.card:not(.card--hero) .focus-chart .chart-wrap {
+  margin-top: 0;
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+
+.card--chart-focus .focus-chart .chart,
+.card--chart-focus.card:not(.card--hero) .focus-chart .chart {
+  flex: 1 1 auto !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+.card--chart-focus .focus-chart .chart-legend {
+  flex: 0 0 auto;
+  height: auto;
+  margin-bottom: 4px;
 }
 
 .card-error {
