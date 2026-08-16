@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=en-charts1">
+  <link rel="stylesheet" href="style.css?v=tabs4-charts1">
 </head>
 <body>
   <div class="shell">
@@ -46,69 +46,28 @@
 
     <div class="rule" aria-hidden="true"></div>
 
-    <!-- English tabs; hash #hub … #mc -->
-    <nav class="page-nav page-nav--dense" id="page-nav" role="tablist" aria-label="Pages">
+    <!-- 4 roomy tabs — hash #hub #net #host #apps (old hashes redirect) -->
+    <nav class="page-nav" id="page-nav" role="tablist" aria-label="Pages">
       <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">Home</button>
-      <button type="button" class="page-tab" role="tab" data-page="dns" aria-selected="false">Ads</button>
       <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">Net</button>
-      <button type="button" class="page-tab" role="tab" data-page="disk" aria-selected="false">Disk</button>
-      <button type="button" class="page-tab" role="tab" data-page="sys" aria-selected="false">Sys</button>
-      <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">Svc</button>
-      <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">Media</button>
-      <button type="button" class="page-tab" role="tab" data-page="mc" aria-selected="false">MC</button>
+      <button type="button" class="page-tab" role="tab" data-page="host" aria-selected="false">Host</button>
+      <button type="button" class="page-tab" role="tab" data-page="apps" aria-selected="false">Apps</button>
     </nav>
 
     <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
       <div id="dashboard-grid"></div>
     </main>
-    <main id="view-dns" class="view" data-page="dns" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Ads</span>
-        <span class="view-meta" id="dns-meta">—</span>
-      </div>
-      <div id="dns-grid" class="focus-grid"></div>
-    </main>
+
     <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Net</span>
-        <span class="view-meta" id="net-meta">VPN · LAN</span>
-      </div>
-      <div id="net-grid" class="focus-grid focus-grid--split"></div>
+      <div id="net-grid" class="page-grid page-grid--net"></div>
     </main>
-    <main id="view-disk" class="view" data-page="disk" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Disk</span>
-        <span class="view-meta" id="disk-meta">SSD</span>
-      </div>
-      <div id="disk-grid" class="focus-grid"></div>
+
+    <main id="view-host" class="view" data-page="host" hidden aria-live="polite">
+      <div id="host-grid" class="page-grid page-grid--host"></div>
     </main>
-    <main id="view-sys" class="view" data-page="sys" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Sys</span>
-        <span class="view-meta" id="sys-meta">CPU · TEMP</span>
-      </div>
-      <div id="sys-grid" class="focus-grid"></div>
-    </main>
-    <main id="view-svc" class="view" data-page="svc" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Svc</span>
-        <span class="view-meta" id="svc-meta">—</span>
-      </div>
-      <div id="svc-grid" class="svc-grid"></div>
-    </main>
-    <main id="view-media" class="view" data-page="media" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Media</span>
-        <span class="view-meta" id="media-meta">—</span>
-      </div>
-      <div id="media-grid" class="media-grid"></div>
-    </main>
-    <main id="view-mc" class="view" data-page="mc" hidden aria-live="polite">
-      <div class="view-head view-head--minimal">
-        <span class="view-title">Minecraft</span>
-        <span class="view-meta" id="mc-meta">—</span>
-      </div>
-      <div id="mc-grid" class="mc-grid"></div>
+
+    <main id="view-apps" class="view" data-page="apps" hidden aria-live="polite">
+      <div id="apps-grid" class="page-grid page-grid--apps"></div>
     </main>
 
     <footer class="foot">
@@ -120,6 +79,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=en-charts1"></script>
+  <script src="app.js?v=tabs4-charts1"></script>
 </body>
 </html>

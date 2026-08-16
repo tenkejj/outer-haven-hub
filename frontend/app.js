@@ -1,43 +1,39 @@
-/* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
-   Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
+/* Outer Haven Hub — cards from /api/dashboard + touch actions.
+   Frontend only knows the base.py contract (metrics / chart / actions).
 
-   Pages: Home | Ads | Net | Disk | Sys | Svc | Media | MC
-   (#hub … #mc). Collector `services` skips the Home grid. */
+   Pages: Home | Net | Host | Apps  (#hub #net #host #apps)
+   Collector `services` skips the Home grid. */
 
 const POLL_MS = 5000;
 const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
 const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
-const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media", "mc"];
+const PAGES = ["hub", "net", "host", "apps"];
 const PAGE_TITLE = {
   hub: "Home",
-  dns: "Ads",
   net: "Net",
-  disk: "Disk",
-  sys: "Sys",
-  svc: "Svc",
-  media: "Media",
-  mc: "MC",
+  host: "Host",
+  apps: "Apps",
+};
+/* Old deep-links from the 8-tab UI → new pages */
+const PAGE_ALIASES = {
+  dns: "net",
+  ads: "net",
+  disk: "host",
+  sys: "host",
+  svc: "apps",
+  media: "apps",
+  mc: "apps",
+  minecraft: "apps",
 };
 const HUB_SYSTEM_LABELS = new Set(["CPU", "RAM", "TEMP"]);
 const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]);
 const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
 
 const grid = document.getElementById("dashboard-grid");
-const dnsGrid = document.getElementById("dns-grid");
 const netGrid = document.getElementById("net-grid");
-const diskGrid = document.getElementById("disk-grid");
-const sysGrid = document.getElementById("sys-grid");
-const svcGrid = document.getElementById("svc-grid");
-const mediaGrid = document.getElementById("media-grid");
-const mcGrid = document.getElementById("mc-grid");
-const dnsMeta = document.getElementById("dns-meta");
-const netMeta = document.getElementById("net-meta");
-const diskMeta = document.getElementById("disk-meta");
-const sysMeta = document.getElementById("sys-meta");
-const svcMeta = document.getElementById("svc-meta");
-const mediaMeta = document.getElementById("media-meta");
-const mcMeta = document.getElementById("mc-meta");
+const hostGrid = document.getElementById("host-grid");
+const appsGrid = document.getElementById("apps-grid");
 const pageNav = document.getElementById("page-nav");
 const footPageEl = document.getElementById("foot-page");
 const overallEl = document.getElementById("overall");
@@ -347,14 +343,14 @@ function renderChart(chart, options = {}) {
   const tall = Boolean(options.tall);
   const dimmed = Boolean(options.dimmed);
   // Tall focus pages: more plot pixels, less number chrome.
-  const width = tall ? 900 : (wide ? 520 : 300);
-  const height = tall ? 260 : (wide ? 160 : 120);
-  const padX = tall ? 6 : 4;
-  const padY = tall ? 10 : 7;
+  const width = tall ? 960 : (wide ? 520 : 300);
+  const height = tall ? 300 : (wide ? 168 : 128);
+  const padX = tall ? 8 : 4;
+  const padY = tall ? 12 : 7;
 
   const series = chart.series.map((s) => ({
     ...s,
-    points: downsample(s.points, tall ? 72 : CHART_MAX_POINTS),
+    points: downsample(s.points, tall ? 96 : CHART_MAX_POINTS),
   })).filter((s) => s.points.length);
 
   if (!series.length) return "";
@@ -623,11 +619,15 @@ function metricValue(collector, label) {
 /** Visual status tile — color + name, almost no prose. */
 function renderServiceTile(metric, index, options = {}) {
   const status = metric.state || "error";
+  const size = options.size || "";
   const note = options.showNote && metric.note
     ? `<div class="svc-tile-note">${esc(metric.note)}</div>`
     : "";
-  return `<article class="svc-tile" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
-    <div class="svc-tile-glow" aria-hidden="true"></div>
+  const art = options.art || "";
+  const sizeClass = size ? ` svc-tile--${size}` : "";
+  return `<article class="svc-tile${sizeClass}" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
+    <div class="svc-tile-bar" aria-hidden="true"></div>
+    ${art}
     <div class="svc-tile-name">${esc(metric.label)}</div>
     <div class="svc-tile-led" data-state="${esc(status)}"></div>
     <div class="svc-tile-state">${esc(metric.value)}</div>
@@ -635,158 +635,120 @@ function renderServiceTile(metric, index, options = {}) {
   </article>`;
 }
 
-function renderSvcView(collector) {
-  if (!svcGrid) return;
-  if (!collector) {
-    svcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    if (svcMeta) svcMeta.textContent = "—";
-    return;
-  }
-  if (collector.error && !serviceStatusMetrics(collector).length) {
-    svcGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    if (svcMeta) svcMeta.textContent = "ERR";
-    return;
-  }
-  const units = serviceStatusMetrics(collector);
-  const sum = serviceSummary(collector);
-  if (svcMeta) svcMeta.textContent = `${sum.up} up · ${sum.down} down`;
-  if (!units.length) {
-    svcGrid.innerHTML = `<div class="empty-state">no units</div>`;
-    return;
-  }
-  svcGrid.innerHTML = units.map((m, i) => renderServiceTile(m, i)).join("");
-}
-
-function renderMediaView(collector) {
-  if (!mediaGrid) return;
-  if (!collector) {
-    mediaGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    return;
-  }
-  const units = serviceStatusMetrics(collector).filter((m) => {
-    if (m.media) return true;
-    const id = String(m.id || "").toLowerCase();
-    return id === "jellyfin" || id === "samba";
-  });
-  if (!units.length) {
-    mediaGrid.innerHTML = `<div class="empty-state">no media units</div>`;
-    return;
-  }
-  const allUp = units.every((m) => m.state === "ok");
-  if (mediaMeta) mediaMeta.textContent = allUp ? "OK" : "CHECK";
-  mediaGrid.innerHTML = units.map((m, i) => renderServiceTile(m, i, { showNote: true })).join("");
-}
-
-function renderMcView(collector) {
-  if (!mcGrid) return;
-  if (!collector) {
-    mcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    if (mcMeta) mcMeta.textContent = "—";
-    return;
-  }
-  const units = serviceStatusMetrics(collector).filter((m) => {
-    if (m.game) return true;
-    return String(m.id || "").toLowerCase() === "minecraft";
-  });
-  if (!units.length) {
-    mcGrid.innerHTML = `<div class="empty-state">add minecraft.service (game: true)</div>`;
-    if (mcMeta) mcMeta.textContent = "—";
-    return;
-  }
-  const m = units[0];
-  const up = m.state === "ok";
-  if (mcMeta) mcMeta.textContent = up ? "ONLINE" : "OFFLINE";
-  // Big graphic panel — cubes + LED, almost no text.
-  mcGrid.innerHTML = `<article class="mc-hero" data-status="${esc(m.state || "error")}">
+function renderMcPanel(metric) {
+  const status = metric.state || "error";
+  return `<article class="mc-hero" data-status="${esc(status)}">
     <div class="mc-hero-art" aria-hidden="true">
       <span class="mc-cube c1"></span>
       <span class="mc-cube c2"></span>
       <span class="mc-cube c3"></span>
       <span class="mc-cube c4"></span>
       <span class="mc-cube c5"></span>
-      <span class="mc-pulse" data-state="${esc(m.state || "error")}"></span>
+      <span class="mc-pulse" data-state="${esc(status)}"></span>
     </div>
-    <div class="mc-hero-state" data-state="${esc(m.state || "error")}">${esc(m.value)}</div>
-    ${m.note ? `<div class="mc-hero-note">${esc(m.note)}</div>` : ""}
+    <div class="mc-hero-state" data-state="${esc(status)}">${esc(metric.value)}</div>
+    ${metric.note ? `<div class="mc-hero-note">${esc(metric.note)}</div>` : ""}
   </article>`;
 }
 
-function renderFocusCollector(container, collector, emptyMsg) {
-  if (!container) return;
-  if (!collector) {
-    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
-    return;
-  }
+function cardOrEmpty(collector, emptyMsg, options = {}) {
+  if (!collector) return `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
   if (collector.error && !(collector.metrics || []).length) {
-    container.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    return;
+    return `<div class="empty-state">${esc(collector.error)}</div>`;
   }
-  container.innerHTML = renderCard(collector, 0, { chartFocus: true });
+  return renderCard(collector, 0, options);
 }
 
-function renderDnsView(data) {
-  const c = findCollector(data, "pihole");
-  if (dnsMeta) {
-    dnsMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "ERR"} · ${metricValue(c, "CLIENTS")}`
-      : "—";
-  }
-  renderFocusCollector(dnsGrid, c, "pihole offline");
-}
-
-function renderDiskView(data) {
-  const c = findCollector(data, "smart");
-  if (diskMeta) {
-    diskMeta.textContent = c ? (STATUS_CODE[c.status] || "ERR") : "—";
-  }
-  renderFocusCollector(diskGrid, c, "disk offline");
-}
-
-function renderSysView(data) {
-  const raw = findCollector(data, "system");
-  const c = withMetrics(raw, SYS_EXTRA_LABELS);
-  if (sysMeta) {
-    sysMeta.textContent = c ? (STATUS_CODE[c.status] || "ERR") : "—";
-  }
-  // Keep chart series from full system collector.
-  const painted = c && raw ? { ...c, chart: raw.chart, status: raw.status } : c;
-  renderFocusCollector(sysGrid, painted, "system offline");
-}
-
-function renderLanCard(systemCollector) {
-  const lan = withMetrics(systemCollector, NET_LAN_LABELS);
-  if (!lan || !(lan.metrics || []).length) {
-    return `<div class="empty-state">lan offline</div>`;
-  }
-  return renderCard({
-    ...lan,
-    id: "lan",
-    label: "LAN",
-    icon: "cpu",
-    chart: null,
-    actions: [],
-  }, 1, { chartFocus: false });
-}
-
+/** Net = Ads (Pi-hole) + VPN + LAN — charts dominate. */
 function renderNetView(data) {
   if (!netGrid) return;
+  const pihole = findCollector(data, "pihole");
   const vpn = findCollector(data, "wireguard");
   const sys = findCollector(data, "system");
-  if (netMeta) {
-    netMeta.textContent = vpn ? (STATUS_CODE[vpn.status] || "ERR") : "LAN";
-  }
+  const lan = withMetrics(sys, NET_LAN_LABELS);
+
   const parts = [];
-  if (vpn) parts.push(renderCard(vpn, 0, { chartFocus: true }));
-  else parts.push(`<div class="empty-state">vpn offline</div>`);
-  parts.push(renderLanCard(sys));
+  parts.push(`<div class="page-slot page-slot--ads">${cardOrEmpty(pihole, "pihole offline", { chartFocus: true })}</div>`);
+
+  const vpnHtml = vpn
+    ? renderCard(vpn, 1, { chartFocus: true })
+    : `<div class="empty-state">vpn offline</div>`;
+  let lanHtml = `<div class="empty-state">lan offline</div>`;
+  if (lan && (lan.metrics || []).length) {
+    lanHtml = renderCard({
+      ...lan,
+      id: "lan",
+      label: "LAN",
+      icon: "cpu",
+      chart: null,
+      actions: [],
+    }, 2);
+  }
+  parts.push(`<div class="page-slot page-slot--vpn">${vpnHtml}</div>`);
+  parts.push(`<div class="page-slot page-slot--lan">${lanHtml}</div>`);
   netGrid.innerHTML = parts.join("");
 }
 
-/* ---------- nawigacja stron ---------- */
+/** Host = System + Disk side by side, gauges + tall charts. */
+function renderHostView(data) {
+  if (!hostGrid) return;
+  const rawSys = findCollector(data, "system");
+  const sys = withMetrics(rawSys, SYS_EXTRA_LABELS);
+  const painted = sys && rawSys
+    ? { ...sys, chart: rawSys.chart, status: rawSys.status, label: "System" }
+    : sys;
+  const disk = findCollector(data, "smart");
+
+  hostGrid.innerHTML = `
+    <div class="page-slot page-slot--sys">${cardOrEmpty(painted, "system offline", { chartFocus: true })}</div>
+    <div class="page-slot page-slot--disk">${cardOrEmpty(disk, "disk offline", { chartFocus: true })}</div>`;
+}
+
+/** Apps = Minecraft + media featured, other services as roomy tiles. */
+function renderAppsView(collector) {
+  if (!appsGrid) return;
+  if (!collector) {
+    appsGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    return;
+  }
+  if (collector.error && !serviceStatusMetrics(collector).length) {
+    appsGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
+    return;
+  }
+
+  const units = serviceStatusMetrics(collector);
+  const featured = [];
+  const rest = [];
+  for (const m of units) {
+    const id = String(m.id || "").toLowerCase();
+    if (m.game || id === "minecraft") featured.push({ kind: "mc", m });
+    else if (m.media || id === "jellyfin" || id === "samba") featured.push({ kind: "media", m });
+    else rest.push(m);
+  }
+
+  const featureHtml = featured.map((item) => {
+    if (item.kind === "mc") {
+      return `<div class="apps-feature">${renderMcPanel(item.m)}</div>`;
+    }
+    return `<div class="apps-feature">${renderServiceTile(item.m, 0, { showNote: true, size: "lg" })}</div>`;
+  }).join("");
+
+  const restHtml = rest.length
+    ? `<div class="apps-rest">${rest.map((m, i) => renderServiceTile(m, i)).join("")}</div>`
+    : "";
+
+  appsGrid.innerHTML = `
+    <div class="apps-featured">${featureHtml || `<div class="empty-state">no featured apps</div>`}</div>
+    ${restHtml}`;
+}
+
+/* ---------- page navigation ---------- */
 
 function pageFromHash() {
   const raw = (location.hash || "").replace(/^#/, "").toLowerCase();
-  return PAGES.includes(raw) ? raw : "hub";
+  if (PAGES.includes(raw)) return raw;
+  if (PAGE_ALIASES[raw]) return PAGE_ALIASES[raw];
+  return "hub";
 }
 
 function setPage(page, options = {}) {
@@ -830,22 +792,17 @@ function paintPage(data) {
     if (!collectors.length) {
       grid.innerHTML = `<div class="empty-state">no active modules</div>`;
     } else {
-      grid.innerHTML = collectors.map(renderCard).join("");
+      // Home: chart-first cards (more plot, less number chrome).
+      grid.innerHTML = collectors.map((c, i) => renderCard(c, i, {
+        chartFocus: c.id === "pihole" || c.id === "system" || c.id === "wireguard" || c.id === "smart",
+      })).join("");
     }
-  } else if (currentPage === "dns") {
-    renderDnsView(data);
   } else if (currentPage === "net") {
     renderNetView(data);
-  } else if (currentPage === "disk") {
-    renderDiskView(data);
-  } else if (currentPage === "sys") {
-    renderSysView(data);
-  } else if (currentPage === "svc") {
-    renderSvcView(svc);
-  } else if (currentPage === "media") {
-    renderMediaView(svc);
-  } else if (currentPage === "mc") {
-    renderMcView(svc);
+  } else if (currentPage === "host") {
+    renderHostView(data);
+  } else if (currentPage === "apps") {
+    renderAppsView(svc);
   }
 }
 
@@ -861,11 +818,11 @@ window.addEventListener("hashchange", () => {
   setPage(pageFromHash(), { updateHash: false });
 });
 
-/* Klawiatura: 1–8 lub strzałki — debug bez dotyku. */
+/* Keyboard: 1–4 or arrows */
 document.addEventListener("keydown", (event) => {
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   const key = event.key;
-  const digit = key >= "1" && key <= "8" ? Number(key) - 1 : -1;
+  const digit = key >= "1" && key <= "4" ? Number(key) - 1 : -1;
   if (digit >= 0 && digit < PAGES.length) setPage(PAGES[digit]);
   else if (key === "ArrowLeft" || key === "ArrowRight") {
     const i = PAGES.indexOf(currentPage);

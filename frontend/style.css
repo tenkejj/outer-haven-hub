@@ -262,14 +262,14 @@ body {
   display: flex;
   flex-shrink: 0;
   gap: 0;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   border: 1px solid var(--line-hi);
   background: var(--panel);
-  height: 40px;
+  height: 48px;
 }
 
 .page-nav--dense {
-  height: 36px;
+  height: 40px;
 }
 
 .page-tab {
@@ -278,25 +278,25 @@ body {
   min-height: var(--touch);
   height: 100%;
   margin: 0;
-  padding: 0 4px;
+  padding: 0 10px;
   border: 0;
   border-right: 1px solid var(--line);
   background: transparent;
   color: var(--text-dim);
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .page-nav--dense .page-tab {
-  min-height: 36px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  padding: 0 2px;
+  min-height: 40px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 0 4px;
 }
 
 .page-tab:last-child { border-right: 0; }
@@ -306,7 +306,7 @@ body {
 .page-tab.is-active {
   color: var(--accent);
   background: var(--panel-2);
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 3px solid var(--accent);
 }
 
 /* ---------- views ---------- */
@@ -360,12 +360,114 @@ body {
   min-width: 0;
   min-height: 0;
   display: grid;
-  /* Chart-heavy: give plot rows more vertical room than metric strips */
+  /* Chart-heavy home: more room for plots than metric strips */
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: 1.05fr 1.35fr;
-  gap: 8px;
+  grid-template-rows: 1fr 1.45fr;
+  gap: 10px;
   align-content: stretch;
   justify-content: stretch;
+}
+
+/* Consolidated pages: Net / Host / Apps */
+.page-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.page-grid--net {
+  grid-template-columns: 1.4fr 1fr;
+  grid-template-rows: 1.35fr 1fr;
+  grid-template-areas:
+    "ads ads"
+    "vpn lan";
+}
+
+.page-grid--host {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+.page-grid--apps {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(160px, 1.15fr) minmax(120px, 1fr);
+}
+
+.page-slot {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.page-slot > .card,
+.page-slot > .empty-state,
+.page-slot > .mc-hero,
+.page-slot > .svc-tile {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.page-slot--ads { grid-area: ads; }
+.page-slot--vpn { grid-area: vpn; }
+.page-slot--lan { grid-area: lan; }
+
+.apps-featured {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
+}
+
+.apps-feature {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.apps-feature > .mc-hero,
+.apps-feature > .svc-tile {
+  flex: 1;
+  width: 100%;
+}
+
+.apps-rest {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(72px, 1fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.svc-tile--lg {
+  min-height: 140px;
+  padding: 16px;
+}
+
+.svc-tile--lg .svc-tile-name { font-size: 18px; }
+.svc-tile--lg .svc-tile-state { font-size: 32px; }
+
+@media (max-width: 900px) {
+  .page-grid--net {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "ads"
+      "vpn"
+      "lan";
+  }
+  .page-grid--host {
+    grid-template-columns: 1fr;
+  }
+  .apps-featured {
+    grid-template-columns: 1fr;
+  }
+  .apps-rest {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .svc-grid,
@@ -525,7 +627,7 @@ body {
 
 .chart-wrap--tall .chart {
   flex: 1 1 auto;
-  min-height: 140px;
+  min-height: 180px;
   height: auto;
 }
 
@@ -638,16 +740,16 @@ body {
   overflow: hidden;
 }
 
-.svc-tile-glow {
+.svc-tile-bar {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
   background: var(--error);
 }
 
-.svc-tile[data-status="ok"] .svc-tile-glow { background: var(--ok); }
-.svc-tile[data-status="warning"] .svc-tile-glow { background: var(--warn); }
-.svc-tile[data-status="error"] .svc-tile-glow { background: var(--error); }
+.svc-tile[data-status="ok"] .svc-tile-bar { background: var(--ok); }
+.svc-tile[data-status="warning"] .svc-tile-bar { background: var(--warn); }
+.svc-tile[data-status="error"] .svc-tile-bar { background: var(--error); }
 
 .svc-tile[data-status="ok"] {
   background: color-mix(in srgb, var(--ok) 8%, var(--panel));
