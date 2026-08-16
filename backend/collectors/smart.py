@@ -37,7 +37,7 @@ WEAR_ATTRIBUTE_IDS = (231, 233, 177, 173, 202, 169)
 
 class SmartCollector(Collector):
     id = "smart"
-    label = "Dysk"
+    label = "Disk"
     icon = "hard-drive"
     refresh_interval = 60  # SMART zmienia się wolno
 

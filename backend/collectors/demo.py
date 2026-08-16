@@ -38,11 +38,11 @@ class DemoPihole(Collector):
     def list_actions(self, data: dict) -> list[dict]:
         blocking_on = bool(data.get("_blocking_enabled", self._blocking))
         return [
-            {"id": "block_off_5", "label": "Pauza 5 min", "style": "warn", "group": "block"},
-            {"id": "block_off_15", "label": "Pauza 15 min", "style": "warn", "group": "block"},
+            {"id": "block_off_5", "label": "OFF 5M", "style": "warn", "group": "block"},
+            {"id": "block_off_15", "label": "OFF 15M", "style": "warn", "group": "block"},
             {
                 "id": "block_on",
-                "label": "Włącz",
+                "label": "ON",
                 "style": "accent" if not blocking_on else "default",
                 "group": "block",
             },
@@ -52,15 +52,15 @@ class DemoPihole(Collector):
         if action_id == "block_on":
             self._blocking = True
             self._off_until = 0.0
-            return {"message": "Blokada włączona"}
+            return {"message": "blocking enabled"}
         if action_id == "block_off_5":
             self._blocking = False
             self._off_until = time.monotonic() + 5 * 60
-            return {"message": "Blokada wyłączona na 5 min"}
+            return {"message": "blocking disabled for 5 min"}
         if action_id == "block_off_15":
             self._blocking = False
             self._off_until = time.monotonic() + 15 * 60
-            return {"message": "Blokada wyłączona na 15 min"}
+            return {"message": "blocking disabled for 15 min"}
         raise RuntimeError(f"unknown action: {action_id}")
 
     async def collect(self) -> dict:
@@ -113,7 +113,7 @@ class DemoPihole(Collector):
 
 class DemoWireguard(Collector):
     id = "wireguard"
-    label = "VPN (zdalny dostęp)"
+    label = "VPN"
     icon = "lock"
     refresh_interval = 5
 
@@ -149,7 +149,7 @@ class DemoWireguard(Collector):
 
 class DemoSystem(Collector):
     id = "system"
-    label = "Raspberry Pi"
+    label = "System"
     icon = "cpu"
     refresh_interval = 5
 
@@ -196,7 +196,7 @@ class DemoSystem(Collector):
 
 class DemoSmart(Collector):
     id = "smart"
-    label = "Dysk"
+    label = "Disk"
     icon = "hard-drive"
     refresh_interval = 5
 
@@ -229,34 +229,34 @@ class DemoSmart(Collector):
 
 
 class DemoServices(Collector):
-    """Sztuczne statusy systemd — HUB_DEMO, strony Usługi / Media / Minecraft."""
+    """Fake systemd statuses — HUB_DEMO, Svc / Media / MC pages."""
 
     id = "services"
-    label = "Usługi"
+    label = "Services"
     icon = "box"
     refresh_interval = 5
 
     # Stała lista jak w config.yaml — UI da się stylować bez Pi.
     _UNITS = [
-        {"id": "jellyfin", "label": "Filmy", "media": True,
+        {"id": "jellyfin", "label": "Jellyfin", "media": True,
          "note": "http://mother-base:8096"},
-        {"id": "samba", "label": "Udostępnianie plików", "media": True,
+        {"id": "samba", "label": "Files", "media": True,
          "note": "smb://mother-base"},
         {"id": "minecraft", "label": "Minecraft", "game": True,
          "note": "mother-base:25565", "critical": False},
-        {"id": "nmbd", "label": "Samba (nazwy)"},
+        {"id": "nmbd", "label": "NMBD"},
         {"id": "winbind", "label": "Winbind", "critical": False},
-        {"id": "wsdd2", "label": "Wykrywanie w sieci"},
-        {"id": "caddy", "label": "Strony WWW"},
-        {"id": "pihole", "label": "Blokada reklam"},
-        {"id": "unbound", "label": "DNS lokalny"},
-        {"id": "hub", "label": "Ten hub"},
+        {"id": "wsdd2", "label": "WSDD"},
+        {"id": "caddy", "label": "Caddy"},
+        {"id": "pihole", "label": "Pi-hole"},
+        {"id": "unbound", "label": "Unbound"},
+        {"id": "hub", "label": "Hub"},
         {"id": "ssh", "label": "SSH"},
-        {"id": "nm", "label": "Sieć"},
-        {"id": "avahi", "label": "Wykrywanie (.local)", "critical": False},
-        {"id": "bluetooth", "label": "Bluetooth", "critical": False},
-        {"id": "cron", "label": "Harmonogram", "critical": False},
-        {"id": "smart", "label": "Monitoring dysku", "critical": False},
+        {"id": "nm", "label": "Net"},
+        {"id": "avahi", "label": "Avahi", "critical": False},
+        {"id": "bluetooth", "label": "BT", "critical": False},
+        {"id": "cron", "label": "Cron", "critical": False},
+        {"id": "smart", "label": "SMART", "critical": False},
     ]
 
     def __init__(self, settings: dict | None = None) -> None:
@@ -283,7 +283,7 @@ class DemoServices(Collector):
             metrics.append({
                 "id": u["id"],
                 "label": u["label"],
-                "value": "Działa" if active else "Wyłączony",
+                "value": "ON" if active else "OFF",
                 "type": "status",
                 "state": state,
                 "note": u.get("note") or "",

@@ -1,53 +1,27 @@
 /* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
    Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
 
-   Strony: Start | Reklamy | Sieć | Dysk | System | Usługi | Media | Minecraft
-   (#hub … #mc). Collector `services` omija siatkę Start. */
+   Pages: Home | Ads | Net | Disk | Sys | Svc | Media | MC
+   (#hub … #mc). Collector `services` skips the Home grid. */
 
 const POLL_MS = 5000;
-/* Status na karcie (krótko) vs badge w topbarze — proste słowa. */
-const STATUS_CODE = { ok: "OK", warning: "UWAGA", error: "BŁĄD" };
-const STATUS_LABEL = { ok: "W PORZĄDKU", warning: "UWAGA", error: "PROBLEM" };
+const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
+const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
 const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media", "mc"];
 const PAGE_TITLE = {
-  hub: "Start",
-  dns: "Reklamy",
-  net: "Sieć",
-  disk: "Dysk",
-  sys: "System",
-  svc: "Usługi",
+  hub: "Home",
+  dns: "Ads",
+  net: "Net",
+  disk: "Disk",
+  sys: "Sys",
+  svc: "Svc",
   media: "Media",
-  mc: "Minecraft",
+  mc: "MC",
 };
 const HUB_SYSTEM_LABELS = new Set(["CPU", "RAM", "TEMP"]);
 const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]);
 const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
-
-/* Przyjazne etykiety metryk — backend nadal wysyła krótkie klucze (CPU, BLOCK…). */
-const METRIC_LABEL_PL = {
-  CPU: "Procesor",
-  RAM: "Pamięć",
-  TEMP: "Temperatura",
-  LOAD: "Obciążenie",
-  SWAP: "Swap",
-  THRTL: "Ograniczenie",
-  IFACE: "Interfejs",
-  "NET IN": "Pobieranie",
-  "NET OUT": "Wysyłanie",
-  TODAY: "Dziś",
-  BLOCKED: "Zablokowane",
-  "% BLOCK": "% zablokowanych",
-  TOTAL: "Razem",
-  CLIENTS: "Urządzenia",
-  QUERIES: "Zapytania",
-  BLOCK: "Blokada",
-  UP: "Działa",
-  DOWN: "Wyłączone",
-  PEERS: "Połączenia",
-  HEALTH: "Zdrowie",
-  FREE: "Wolne",
-};
 
 const grid = document.getElementById("dashboard-grid");
 const dnsGrid = document.getElementById("dns-grid");
@@ -157,15 +131,10 @@ function piholeBlockMode(collector) {
 
 /* ---------- metryki ---------- */
 
-function friendlyMetricLabel(raw) {
-  const key = String(raw || "").toUpperCase();
-  return METRIC_LABEL_PL[key] || String(raw || "");
-}
-
 function renderMetric(metric) {
   const type = metric.type || "text";
   const state = metric.state || "";
-  const label = esc(friendlyMetricLabel(metric.label));
+  const label = esc(metric.label);
   const value = esc(metric.value);
 
   if (type === "number" || type === "percent") {
@@ -212,18 +181,18 @@ function renderMetric(metric) {
   </div>`;
 }
 
-/** Hero Pi-hole: status BLOCK — LED + proste słowo (Blokuje / Pauza). */
+/** Hero Pi-hole: BLOCK status — LED + short word (BLOCKING / PAUSED). */
 function renderBlockPlate(metric) {
   const state = metric.state || "ok";
   const raw = String(metric.value || "—").toUpperCase();
-  let word = "Blokuje";
+  let word = "BLOCKING";
   let timer = "";
   if (raw === "ON" || raw.startsWith("ON ")) {
-    word = "Blokuje";
+    word = "BLOCKING";
   } else {
-    word = "Pauza";
+    word = "PAUSED";
     const m = raw.match(/(\d+)\s*M/);
-    if (m) timer = `${m[1]} min`;
+    if (m) timer = `${m[1]}M`;
     else if (raw.includes("OFF")) timer = "—";
   }
   const timerHtml = timer
@@ -375,15 +344,17 @@ function renderChart(chart, options = {}) {
   }
 
   const wide = Boolean(options.wide);
+  const tall = Boolean(options.tall);
   const dimmed = Boolean(options.dimmed);
-  const width = wide ? 520 : 300;
-  const height = wide ? 160 : 112;
-  const padX = 4;
-  const padY = 7;
+  // Tall focus pages: more plot pixels, less number chrome.
+  const width = tall ? 900 : (wide ? 520 : 300);
+  const height = tall ? 260 : (wide ? 160 : 120);
+  const padX = tall ? 6 : 4;
+  const padY = tall ? 10 : 7;
 
   const series = chart.series.map((s) => ({
     ...s,
-    points: downsample(s.points, CHART_MAX_POINTS),
+    points: downsample(s.points, tall ? 72 : CHART_MAX_POINTS),
   })).filter((s) => s.points.length);
 
   if (!series.length) return "";
@@ -400,8 +371,14 @@ function renderChart(chart, options = {}) {
   const caption = chart.caption
     ? `<div class="chart-caption">${esc(chart.caption)}</div>`
     : "";
+  const wrapClass = [
+    "chart-wrap",
+    wide ? "chart-wrap--wide" : "",
+    tall ? "chart-wrap--tall" : "",
+    dimmed ? "chart-wrap--dim" : "",
+  ].filter(Boolean).join(" ");
 
-  return `<div class="chart-wrap${wide ? " chart-wrap--wide" : ""}${dimmed ? " chart-wrap--dim" : ""}" aria-hidden="true">
+  return `<div class="${wrapClass}" aria-hidden="true">
     ${title}
     ${caption}
     <div class="chart-legend">${chartLegend(series)}</div>
@@ -409,6 +386,27 @@ function renderChart(chart, options = {}) {
       <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none">
         ${plot}
       </svg>
+    </div>
+  </div>`;
+}
+
+/** Compact SVG ring for a percent metric — visual first on Disk/Sys focus. */
+function renderGauge(metric) {
+  const pct = Math.max(0, Math.min(100, Number(metric.value) || 0));
+  const state = metric.state || "";
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  const dash = (pct / 100) * c;
+  return `<div class="gauge" data-state="${esc(state)}">
+    <svg viewBox="0 0 80 80" class="gauge-svg" aria-hidden="true">
+      <circle class="gauge-track" cx="40" cy="40" r="${r}" />
+      <circle class="gauge-fill" cx="40" cy="40" r="${r}"
+        stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}"
+        transform="rotate(-90 40 40)" />
+    </svg>
+    <div class="gauge-readout">
+      <span class="gauge-num">${esc(String(Math.round(pct)))}<span class="gauge-unit">%</span></span>
+      <span class="gauge-label">${esc(metric.label)}</span>
     </div>
   </div>`;
 }
@@ -487,11 +485,12 @@ function renderToolActions(collector) {
 
 /* ---------- karta ---------- */
 
-function renderCard(collector, index) {
+function renderCard(collector, index, options = {}) {
   const status = collector.status || "error";
   const metrics = collector.metrics || [];
   const layout = collector.layout || "default";
   const isHero = layout === "hero";
+  const chartFocus = Boolean(options.chartFocus);
   const idx = String(index + 1).padStart(2, "0");
   const chartDimmed = isHero && status === "warning";
 
@@ -500,6 +499,10 @@ function renderCard(collector, index) {
   const rest = metrics.filter(
     (m) => m.type !== "number" && m.type !== "percent" && m.type !== "status",
   );
+  const gauges = chartFocus
+    ? big.filter((m) => m.type === "percent" || String(m.label).toUpperCase() === "RAM"
+      || String(m.label).toUpperCase() === "CPU")
+    : [];
 
   let body = "";
 
@@ -507,17 +510,49 @@ function renderCard(collector, index) {
     body = `<div class="card-error">${esc(collector.error)}</div>`;
   } else if (isHero) {
     const blockHtml = renderBlockActions(collector);
-    const left = `
-      <div class="hero-left">
-        ${big.length ? `<div class="metrics-row metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>` : ""}
-        <div class="hero-rail">
-          <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
-          ${blockHtml}
+    // Ads focus: chart dominates; numbers stay as a thin strip.
+    if (chartFocus) {
+      const strip = big.length
+        ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
+        : "";
+      body = `
+        <div class="focus-top">
+          ${strip}
+          <div class="hero-rail hero-rail--compact">
+            <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
+            ${blockHtml}
+          </div>
         </div>
-        ${rest.map(renderMetric).join("")}
-      </div>`;
-    const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, dimmed: chartDimmed })}</div>`;
-    body = left + right;
+        <div class="focus-chart">${renderChart(collector.chart, { wide: true, tall: true, dimmed: chartDimmed })}</div>`;
+    } else {
+      const left = `
+        <div class="hero-left">
+          ${big.length ? `<div class="metrics-row metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>` : ""}
+          <div class="hero-rail">
+            <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
+            ${blockHtml}
+          </div>
+          ${rest.map(renderMetric).join("")}
+        </div>`;
+      const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, dimmed: chartDimmed })}</div>`;
+      body = left + right;
+    }
+    if (collector.error) {
+      body += `<div class="card-error">${esc(collector.error)}</div>`;
+    }
+  } else if (chartFocus) {
+    const gaugeHtml = gauges.length
+      ? `<div class="gauge-row">${gauges.slice(0, 3).map(renderGauge).join("")}</div>`
+      : "";
+    const strip = big.length
+      ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
+      : "";
+    body = `
+      <div class="focus-top">
+        ${gaugeHtml || strip}
+        ${statusMetrics.map(renderMetric).join("")}
+      </div>
+      <div class="focus-chart">${renderChart(collector.chart, { wide: true, tall: true })}</div>`;
     if (collector.error) {
       body += `<div class="card-error">${esc(collector.error)}</div>`;
     }
@@ -533,18 +568,21 @@ function renderCard(collector, index) {
     }
   }
 
-  const layoutClass = isHero ? " card--hero" : "";
-  return `<article class="card${layoutClass}" data-id="${esc(collector.id)}" data-status="${esc(status)}">
+  const layoutClass = [
+    isHero ? "card--hero" : "",
+    chartFocus ? "card--chart-focus" : "",
+  ].filter(Boolean).join(" ");
+  return `<article class="card${layoutClass ? ` ${layoutClass}` : ""}" data-id="${esc(collector.id)}" data-status="${esc(status)}">
     <header class="card-head">
       <span class="card-index">${idx}</span>
       <span class="card-title">${esc(collector.label)}</span>
-      <span class="card-code">${STATUS_CODE[status] || "BŁĄD"}</span>
+      <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
     </header>
-    <div class="card-body${isHero ? " card-body--hero" : ""}">${body}</div>
+    <div class="card-body${isHero ? " card-body--hero" : ""}${chartFocus ? " card-body--focus" : ""}">${body}</div>
   </article>`;
 }
 
-/* ---------- Usługi / Media / Minecraft / focus pages ---------- */
+/* ---------- Svc / Media / Minecraft / focus pages ---------- */
 
 function findCollector(data, id) {
   return (data.collectors || []).find((c) => c.id === id) || null;
@@ -582,59 +620,47 @@ function metricValue(collector, label) {
   return m ? m.value : "—";
 }
 
-/** Karta jednostki systemd — ten sam chrome co Start (pasek statusu, L-feel). */
-function renderServiceCard(metric, index, options = {}) {
+/** Visual status tile — color + name, almost no prose. */
+function renderServiceTile(metric, index, options = {}) {
   const status = metric.state || "error";
-  const idx = String(index + 1).padStart(2, "0");
   const note = options.showNote && metric.note
-    ? `<div class="svc-note">${esc(metric.note)}</div>`
+    ? `<div class="svc-tile-note">${esc(metric.note)}</div>`
     : "";
-  const sub = options.subtitle
-    ? `<div class="svc-sub">${esc(options.subtitle)}</div>`
-    : "";
-  return `<article class="card svc-card" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
-    <header class="card-head">
-      <span class="card-index">${idx}</span>
-      <span class="card-title">${esc(metric.label)}</span>
-      <span class="card-code">${STATUS_CODE[status] || "BŁĄD"}</span>
-    </header>
-    <div class="card-body svc-card-body">
-      <div class="svc-state" data-state="${esc(status)}">
-        <span class="mark" data-state="${esc(status)}"></span>
-        <span class="svc-value">${esc(metric.value)}</span>
-      </div>
-      ${sub}
-      ${note}
-    </div>
+  return `<article class="svc-tile" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
+    <div class="svc-tile-glow" aria-hidden="true"></div>
+    <div class="svc-tile-name">${esc(metric.label)}</div>
+    <div class="svc-tile-led" data-state="${esc(status)}"></div>
+    <div class="svc-tile-state">${esc(metric.value)}</div>
+    ${note}
   </article>`;
 }
 
 function renderSvcView(collector) {
   if (!svcGrid) return;
   if (!collector) {
-    svcGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
-    if (svcMeta) svcMeta.textContent = "Brak danych";
+    svcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    if (svcMeta) svcMeta.textContent = "—";
     return;
   }
   if (collector.error && !serviceStatusMetrics(collector).length) {
     svcGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    if (svcMeta) svcMeta.textContent = "Błąd";
+    if (svcMeta) svcMeta.textContent = "ERR";
     return;
   }
   const units = serviceStatusMetrics(collector);
   const sum = serviceSummary(collector);
-  if (svcMeta) svcMeta.textContent = `Działa ${sum.up} · Wyłączone ${sum.down}`;
+  if (svcMeta) svcMeta.textContent = `${sum.up} up · ${sum.down} down`;
   if (!units.length) {
-    svcGrid.innerHTML = `<div class="empty-state">Brak usług w konfiguracji</div>`;
+    svcGrid.innerHTML = `<div class="empty-state">no units</div>`;
     return;
   }
-  svcGrid.innerHTML = units.map((m, i) => renderServiceCard(m, i)).join("");
+  svcGrid.innerHTML = units.map((m, i) => renderServiceTile(m, i)).join("");
 }
 
 function renderMediaView(collector) {
   if (!mediaGrid) return;
   if (!collector) {
-    mediaGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
+    mediaGrid.innerHTML = `<div class="empty-state">services offline</div>`;
     return;
   }
   const units = serviceStatusMetrics(collector).filter((m) => {
@@ -643,25 +669,19 @@ function renderMediaView(collector) {
     return id === "jellyfin" || id === "samba";
   });
   if (!units.length) {
-    mediaGrid.innerHTML = `<div class="empty-state">Brak usług mediów</div>`;
+    mediaGrid.innerHTML = `<div class="empty-state">no media units</div>`;
     return;
   }
   const allUp = units.every((m) => m.state === "ok");
-  if (mediaMeta) {
-    mediaMeta.textContent = allUp ? "Wszystko działa" : "Sprawdź usługi";
-  }
-  mediaGrid.innerHTML = units.map((m, i) => {
-    const id = String(m.id || "").toLowerCase();
-    const sub = id === "samba" ? "Udostępnianie w sieci" : "Odtwarzanie filmów";
-    return renderServiceCard(m, i, { showNote: true, subtitle: sub });
-  }).join("");
+  if (mediaMeta) mediaMeta.textContent = allUp ? "OK" : "CHECK";
+  mediaGrid.innerHTML = units.map((m, i) => renderServiceTile(m, i, { showNote: true })).join("");
 }
 
 function renderMcView(collector) {
   if (!mcGrid) return;
   if (!collector) {
-    mcGrid.innerHTML = `<div class="empty-state">Brak danych o usługach</div>`;
-    if (mcMeta) mcMeta.textContent = "Brak danych";
+    mcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    if (mcMeta) mcMeta.textContent = "—";
     return;
   }
   const units = serviceStatusMetrics(collector).filter((m) => {
@@ -669,79 +689,83 @@ function renderMcView(collector) {
     return String(m.id || "").toLowerCase() === "minecraft";
   });
   if (!units.length) {
-    mcGrid.innerHTML = `<div class="empty-state">Dodaj minecraft.service w config.yaml (game: true)</div>`;
-    if (mcMeta) mcMeta.textContent = "Nie skonfigurowano";
+    mcGrid.innerHTML = `<div class="empty-state">add minecraft.service (game: true)</div>`;
+    if (mcMeta) mcMeta.textContent = "—";
     return;
   }
   const m = units[0];
   const up = m.state === "ok";
-  if (mcMeta) {
-    mcMeta.textContent = up ? "Serwer włączony" : "Serwer wyłączony";
-  }
-  mcGrid.innerHTML = units.map((unit, i) => renderServiceCard(unit, i, {
-    showNote: true,
-    subtitle: up ? "Można wchodzić do gry" : "Uruchom: sudo systemctl start minecraft",
-  })).join("");
+  if (mcMeta) mcMeta.textContent = up ? "ONLINE" : "OFFLINE";
+  // Big graphic panel — cubes + LED, almost no text.
+  mcGrid.innerHTML = `<article class="mc-hero" data-status="${esc(m.state || "error")}">
+    <div class="mc-hero-art" aria-hidden="true">
+      <span class="mc-cube c1"></span>
+      <span class="mc-cube c2"></span>
+      <span class="mc-cube c3"></span>
+      <span class="mc-cube c4"></span>
+      <span class="mc-cube c5"></span>
+      <span class="mc-pulse" data-state="${esc(m.state || "error")}"></span>
+    </div>
+    <div class="mc-hero-state" data-state="${esc(m.state || "error")}">${esc(m.value)}</div>
+    ${m.note ? `<div class="mc-hero-note">${esc(m.note)}</div>` : ""}
+  </article>`;
 }
 
 function renderFocusCollector(container, collector, emptyMsg) {
   if (!container) return;
   if (!collector) {
-    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "Brak danych")}</div>`;
+    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
     return;
   }
   if (collector.error && !(collector.metrics || []).length) {
     container.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
     return;
   }
-  container.innerHTML = renderCard(collector);
+  container.innerHTML = renderCard(collector, 0, { chartFocus: true });
 }
 
 function renderDnsView(data) {
   const c = findCollector(data, "pihole");
   if (dnsMeta) {
     dnsMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "BŁĄD"} · ${metricValue(c, "CLIENTS")} urządzeń`
-      : "Brak danych";
+      ? `${STATUS_CODE[c.status] || "ERR"} · ${metricValue(c, "CLIENTS")}`
+      : "—";
   }
-  renderFocusCollector(dnsGrid, c, "Pi-hole niedostępny");
+  renderFocusCollector(dnsGrid, c, "pihole offline");
 }
 
 function renderDiskView(data) {
   const c = findCollector(data, "smart");
   if (diskMeta) {
-    diskMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "BŁĄD"} · wolne ${metricValue(c, "FREE")}`
-      : "Brak danych";
+    diskMeta.textContent = c ? (STATUS_CODE[c.status] || "ERR") : "—";
   }
-  renderFocusCollector(diskGrid, c, "Dysk niedostępny");
+  renderFocusCollector(diskGrid, c, "disk offline");
 }
 
 function renderSysView(data) {
   const raw = findCollector(data, "system");
   const c = withMetrics(raw, SYS_EXTRA_LABELS);
   if (sysMeta) {
-    sysMeta.textContent = c
-      ? `Ograniczenie ${metricValue(c, "THRTL")} · obciążenie ${metricValue(c, "LOAD")}`
-      : "Brak danych";
+    sysMeta.textContent = c ? (STATUS_CODE[c.status] || "ERR") : "—";
   }
-  renderFocusCollector(sysGrid, c, "System niedostępny");
+  // Keep chart series from full system collector.
+  const painted = c && raw ? { ...c, chart: raw.chart, status: raw.status } : c;
+  renderFocusCollector(sysGrid, painted, "system offline");
 }
 
 function renderLanCard(systemCollector) {
   const lan = withMetrics(systemCollector, NET_LAN_LABELS);
   if (!lan || !(lan.metrics || []).length) {
-    return `<div class="empty-state">LAN niedostępny</div>`;
+    return `<div class="empty-state">lan offline</div>`;
   }
-  // Osobna etykieta karty — nie mylić z Raspberry Pi na Start.
   return renderCard({
     ...lan,
     id: "lan",
-    label: "Sieć lokalna",
+    label: "LAN",
     icon: "cpu",
     chart: null,
     actions: [],
-  });
+  }, 1, { chartFocus: false });
 }
 
 function renderNetView(data) {
@@ -749,14 +773,11 @@ function renderNetView(data) {
   const vpn = findCollector(data, "wireguard");
   const sys = findCollector(data, "system");
   if (netMeta) {
-    const iface = metricValue(sys, "IFACE");
-    netMeta.textContent = vpn
-      ? `${STATUS_CODE[vpn.status] || "BŁĄD"} · ${iface}`
-      : `LAN · ${iface}`;
+    netMeta.textContent = vpn ? (STATUS_CODE[vpn.status] || "ERR") : "LAN";
   }
   const parts = [];
-  if (vpn) parts.push(renderCard(vpn));
-  else parts.push(`<div class="empty-state">VPN niedostępny</div>`);
+  if (vpn) parts.push(renderCard(vpn, 0, { chartFocus: true }));
+  else parts.push(`<div class="empty-state">vpn offline</div>`);
   parts.push(renderLanCard(sys));
   netGrid.innerHTML = parts.join("");
 }
@@ -807,7 +828,7 @@ function paintPage(data) {
       .filter((c) => c.id !== "services")
       .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
     if (!collectors.length) {
-      grid.innerHTML = `<div class="empty-state">Brak aktywnych modułów</div>`;
+      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
     } else {
       grid.innerHTML = collectors.map(renderCard).join("");
     }
@@ -884,13 +905,13 @@ async function refreshDashboard() {
 
     setOverall(data.status);
     paintPage(data);
-    footUptimeEl.textContent = `Działa ${data.uptime || "—"}`;
-    footModeEl.textContent = "NA ŻYWO";
+    footUptimeEl.textContent = `UP ${data.uptime || "—"}`;
+    footModeEl.textContent = "LIVE";
   } catch (err) {
     setOverall("error");
     footModeEl.textContent = "DOWN";
     if (currentPage === "hub" && grid && !grid.children.length) {
-      grid.innerHTML = `<div class="empty-state">Brak połączenia · ${esc(err.message)}</div>`;
+      grid.innerHTML = `<div class="empty-state">link down · ${esc(err.message)}</div>`;
     }
     console.warn("dashboard refresh failed:", err);
   }
@@ -947,7 +968,7 @@ setInterval(tickClock, 1000);
 /* Start na hashu (np. kiosk z zakładką #mc) */
 setPage(pageFromHash(), { updateHash: true });
 
-/* Krótki splash startowy → fade out */
+/* Boot splash → fade out */
 function runBootSplash() {
   const splash = document.getElementById("boot-splash");
   const label = document.getElementById("boot-label");
@@ -957,12 +978,11 @@ function runBootSplash() {
     return;
   }
 
-  // Dashboard ładuje się w tle pod splash
   refreshDashboard();
   setInterval(refreshDashboard, POLL_MS);
 
   setTimeout(() => {
-    label.textContent = "Połączono";
+    label.textContent = "LINK ESTABLISHED";
     label.classList.add("is-ok");
     splash.classList.add("is-linked");
   }, 900);

@@ -1,6 +1,6 @@
-# Outer Haven Hub — konfiguracja włączonych źródeł danych.
-# Dodanie nowego collectora = dopisanie id poniżej + wpis w registry.py.
-# Kolejność na liście = kolejność kart na stronie Start.
+# Outer Haven Hub — enabled data sources.
+# New collector = id below + entry in registry.py.
+# List order = card order on Home.
 
 enabled_collectors:
   - pihole
@@ -8,97 +8,89 @@ enabled_collectors:
   - system
   - smart
   - services
-  # - nextcloud   ← odkomentuj, gdy dodasz ten moduł
+  # - nextcloud
 
 collectors:
   pihole:
-    # Adres bazowy API Pi-hole (ta sama maszyna → localhost).
-    # Hasło aplikacji: backend/.env → PIHOLE_APP_PASSWORD
-    # Jeśli Caddy zajmuje 80/443, Pi-hole często jest na :8080 →
-    # "http://127.0.0.1:8080" — patrz DEPLOY.md.
+    # Pi-hole API base. App password: backend/.env → PIHOLE_APP_PASSWORD
+    # If Caddy owns 80/443, Pi-hole is often on :8080 — see DEPLOY.md.
     base_url: "http://127.0.0.1"
 
   smart:
-    # Ścieżka urządzenia SSD. Musi być identyczna z wpisem w
-    # deploy/sudoers-outer-haven-hub (sudo porównuje argumenty 1:1).
+    # Must match deploy/sudoers-outer-haven-hub (sudo argv 1:1).
     device: "/dev/sda"
-    # Punkt montowania do metryki FREE (shutil.disk_usage).
     mount: "/"
 
   system:
-    # Interfejs do ruchu sieciowego (strona Sieć). eth0 typowe na Pi Ethernet.
+    # Interface for NET IN/OUT (Net page). eth0 typical on Pi Ethernet.
     iface: "eth0"
 
   wireguard:
-    # Mapa klucz_publiczny → przyjazna nazwa na karcie.
-    # Klucz bierzesz z `sudo wg show` (kolumna peer).
     peer_names:
       # "YOUR_PEER_PUBLIC_KEY_BASE64=": "laptop"
       # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"
 
   services:
-    # Jednostki systemd — Usługi (wszystkie) / Media (media: true) / Minecraft (game: true).
-    # critical: false → wyłączenie nie psuje zbiorczego statusu (np. bluetooth, MC).
-    # note = adres / URL do pokazania na karcie (bez sekretów).
+    # systemd units — Svc (all) / Media (media: true) / MC (game: true).
+    # critical: false → OFF does not trip overall status.
     units:
       - id: jellyfin
         unit: jellyfin.service
-        label: Filmy
+        label: Jellyfin
         media: true
         note: "http://mother-base:8096"
       - id: samba
         unit: smbd.service
-        label: Udostępnianie plików
+        label: Files
         media: true
         note: "smb://mother-base"
       - id: minecraft
         unit: minecraft.service
         label: Minecraft
         game: true
-        # Wyłączony serwer to normalne — nie czerwony alert całego huba.
         critical: false
         note: "mother-base:25565"
       - id: nmbd
         unit: nmbd.service
-        label: Samba (nazwy)
+        label: NMBD
       - id: winbind
         unit: winbind.service
         label: Winbind
         critical: false
       - id: wsdd2
         unit: wsdd2.service
-        label: Wykrywanie w sieci
+        label: WSDD
       - id: caddy
         unit: caddy.service
-        label: Strony WWW
+        label: Caddy
       - id: pihole
         unit: pihole-FTL.service
-        label: Blokada reklam
+        label: Pi-hole
       - id: unbound
         unit: unbound.service
-        label: DNS lokalny
+        label: Unbound
       - id: hub
         unit: outer-haven-hub.service
-        label: Ten hub
+        label: Hub
       - id: ssh
         unit: ssh.service
         label: SSH
       - id: nm
         unit: NetworkManager.service
-        label: Sieć
+        label: Net
       - id: avahi
         unit: avahi-daemon.service
-        label: Wykrywanie (.local)
+        label: Avahi
         critical: false
       - id: bluetooth
         unit: bluetooth.service
-        label: Bluetooth
+        label: BT
         critical: false
       - id: cron
         unit: cron.service
-        label: Harmonogram
+        label: Cron
         critical: false
       - id: smart
         unit: smartmontools.service
-        label: Monitoring dysku
+        label: SMART
         critical: false

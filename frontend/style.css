@@ -286,8 +286,8 @@ body {
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: none;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -295,9 +295,8 @@ body {
 .page-nav--dense .page-tab {
   min-height: 36px;
   font-size: 10px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
   padding: 0 2px;
-  text-transform: none;
 }
 
 .page-tab:last-child { border-right: 0; }
@@ -333,19 +332,24 @@ body {
   padding: 0 2px;
 }
 
+.view-head--minimal {
+  min-height: 16px;
+  margin-bottom: 2px;
+}
+
 .view-title {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-hi);
-  text-transform: none;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 
 .view-meta {
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0.1em;
   color: var(--text-dim);
-  text-transform: none;
+  text-transform: uppercase;
 }
 
 /* ---------- grid ---------- */
@@ -356,9 +360,9 @@ body {
   min-width: 0;
   min-height: 0;
   display: grid;
-  /* Lekko więcej miejsca na dolne wykresy; liczby nie dominują */
+  /* Chart-heavy: give plot rows more vertical room than metric strips */
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: 1.15fr 1.15fr;
+  grid-template-rows: 1.05fr 1.35fr;
   gap: 8px;
   align-content: stretch;
   justify-content: stretch;
@@ -477,6 +481,311 @@ body {
   font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: none;
+}
+
+/* ---------- chart-first focus cards ---------- */
+
+.card--chart-focus {
+  min-height: 0;
+}
+
+.card-body--focus {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.focus-top {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.focus-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.focus-chart .chart-wrap--tall {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.chart-wrap--tall {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.chart-wrap--tall .chart {
+  flex: 1 1 auto;
+  min-height: 140px;
+  height: auto;
+}
+
+.chart-wrap--tall .chart-legend {
+  flex: 0 0 auto;
+}
+
+.metrics-row--strip .metric-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.metrics-row--strip .metric-value,
+.metrics-row--strip .metric-num {
+  font-size: 18px;
+}
+
+.hero-rail--compact {
+  margin-top: 0;
+}
+
+.card--chart-focus.card--hero .card-body--hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card--chart-focus.card--hero .focus-chart {
+  flex: 1 1 auto;
+}
+
+/* Gauges — compact rings next to charts */
+.gauge-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.gauge {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+}
+
+.gauge-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.gauge-track {
+  fill: none;
+  stroke: var(--line-hi);
+  stroke-width: 6;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: butt;
+}
+
+.gauge[data-state="warning"] .gauge-fill { stroke: var(--warn); }
+.gauge[data-state="error"] .gauge-fill { stroke: var(--error); }
+
+.gauge-readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gauge-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-hi);
+  line-height: 1;
+}
+
+.gauge-unit {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 1px;
+}
+
+.gauge-label {
+  margin-top: 2px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* ---------- visual service tiles ---------- */
+
+.svc-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 70px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.svc-tile-glow {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--error);
+}
+
+.svc-tile[data-status="ok"] .svc-tile-glow { background: var(--ok); }
+.svc-tile[data-status="warning"] .svc-tile-glow { background: var(--warn); }
+.svc-tile[data-status="error"] .svc-tile-glow { background: var(--error); }
+
+.svc-tile[data-status="ok"] {
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+}
+.svc-tile[data-status="warning"] {
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+}
+.svc-tile[data-status="error"] {
+  background: color-mix(in srgb, var(--error) 10%, var(--panel));
+}
+
+.svc-tile-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-hi);
+}
+
+.svc-tile-led {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--line-hi);
+  background: var(--error);
+}
+
+.svc-tile-led[data-state="ok"] { background: var(--ok); }
+.svc-tile-led[data-state="warning"] { background: var(--warn); }
+.svc-tile-led[data-state="error"] { background: var(--error); }
+
+.svc-tile-state {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+}
+
+.svc-tile[data-status="ok"] .svc-tile-state { color: var(--ok); }
+.svc-tile[data-status="warning"] .svc-tile-state { color: var(--warn); }
+.svc-tile[data-status="error"] .svc-tile-state { color: var(--error); }
+
+.svc-tile-note {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.media-grid .svc-tile {
+  min-height: 120px;
+  padding: 14px;
+}
+
+.media-grid .svc-tile-name { font-size: 18px; }
+.media-grid .svc-tile-state { font-size: 28px; }
+
+/* ---------- Minecraft hero panel ---------- */
+
+.mc-hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 20px;
+}
+
+.mc-hero[data-status="ok"] {
+  background: color-mix(in srgb, var(--ok) 7%, var(--panel));
+}
+.mc-hero[data-status="error"] {
+  background: color-mix(in srgb, var(--error) 8%, var(--panel));
+}
+
+.mc-hero-art {
+  position: relative;
+  width: 180px;
+  height: 120px;
+}
+
+.mc-cube {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-hi);
+  background: var(--panel-2);
+}
+
+.mc-cube.c1 { left: 40px; top: 48px; background: color-mix(in srgb, var(--accent) 35%, var(--panel)); }
+.mc-cube.c2 { left: 72px; top: 28px; background: color-mix(in srgb, var(--accent) 55%, var(--panel)); }
+.mc-cube.c3 { left: 104px; top: 48px; background: color-mix(in srgb, var(--accent) 25%, var(--panel)); }
+.mc-cube.c4 { left: 72px; top: 68px; background: color-mix(in srgb, var(--accent) 45%, var(--panel)); }
+.mc-cube.c5 { left: 20px; top: 20px; width: 22px; height: 22px; opacity: 0.55; }
+
+.mc-pulse {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-hi);
+  background: var(--error);
+}
+
+.mc-pulse[data-state="ok"] { background: var(--ok); }
+.mc-pulse[data-state="warning"] { background: var(--warn); }
+.mc-pulse[data-state="error"] { background: var(--error); }
+
+.mc-hero[data-status="ok"] .mc-pulse {
+  animation: mc-blink 1.6s steps(1, end) infinite;
+}
+
+@keyframes mc-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.mc-hero-state {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--text-dim);
+}
+
+.mc-hero-state[data-state="ok"] { color: var(--ok); }
+.mc-hero-state[data-state="warning"] { color: var(--warn); }
+.mc-hero-state[data-state="error"] { color: var(--error); }
+
+.mc-hero-note {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
 }
 
 .card {
