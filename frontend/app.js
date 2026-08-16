@@ -486,7 +486,9 @@ function renderCard(collector, index, options = {}) {
   const metrics = collector.metrics || [];
   const layout = collector.layout || "default";
   const isHero = layout === "hero";
-  const chartFocus = Boolean(options.chartFocus);
+  // chartFocus = stacked metrics-on-top / chart-fills-rest (Host cards).
+  // Never combine with hero — hero keeps proven left|right split.
+  const chartFocus = Boolean(options.chartFocus) && !isHero;
   const idx = String(index + 1).padStart(2, "0");
   const chartDimmed = isHero && status === "warning";
 
@@ -496,8 +498,10 @@ function renderCard(collector, index, options = {}) {
     (m) => m.type !== "number" && m.type !== "percent" && m.type !== "status",
   );
   const gauges = chartFocus
-    ? big.filter((m) => m.type === "percent" || String(m.label).toUpperCase() === "RAM"
-      || String(m.label).toUpperCase() === "CPU")
+    ? big.filter((m) => {
+      const lab = String(m.label).toUpperCase();
+      return m.type === "percent" || lab === "RAM" || lab === "CPU";
+    })
     : [];
 
   let body = "";
@@ -506,46 +510,35 @@ function renderCard(collector, index, options = {}) {
     body = `<div class="card-error">${esc(collector.error)}</div>`;
   } else if (isHero) {
     const blockHtml = renderBlockActions(collector);
-    // Ads focus: chart dominates; numbers stay as a thin strip.
-    if (chartFocus) {
-      const strip = big.length
-        ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
-        : "";
-      body = `
-        <div class="focus-top">
-          ${strip}
-          <div class="hero-rail hero-rail--compact">
-            <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
-            ${blockHtml}
-          </div>
+    const left = `
+      <div class="hero-left">
+        ${big.length ? `<div class="metrics-row metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>` : ""}
+        <div class="hero-rail">
+          <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
+          ${blockHtml}
         </div>
-        <div class="focus-chart">${renderChart(collector.chart, { wide: true, tall: true, dimmed: chartDimmed })}</div>`;
-    } else {
-      const left = `
-        <div class="hero-left">
-          ${big.length ? `<div class="metrics-row metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>` : ""}
-          <div class="hero-rail">
-            <div class="hero-status">${statusMetrics.map(renderBlockPlate).join("")}</div>
-            ${blockHtml}
-          </div>
-          ${rest.map(renderMetric).join("")}
-        </div>`;
-      const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, dimmed: chartDimmed })}</div>`;
-      body = left + right;
-    }
+        ${rest.map(renderMetric).join("")}
+      </div>`;
+    const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, tall: true, dimmed: chartDimmed })}</div>`;
+    body = left + right;
     if (collector.error) {
       body += `<div class="card-error">${esc(collector.error)}</div>`;
     }
   } else if (chartFocus) {
+    // Compact strip + gauges; chart MUST fill remaining height (see CSS height:0 trick).
     const gaugeHtml = gauges.length
       ? `<div class="gauge-row">${gauges.slice(0, 3).map(renderGauge).join("")}</div>`
       : "";
-    const strip = big.length
-      ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
-      : "";
+    const otherBig = big.filter((m) => !gauges.includes(m));
+    const strip = otherBig.length
+      ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(otherBig.length, 4)}">${otherBig.map(renderMetric).join("")}</div>`
+      : (!gauges.length && big.length
+        ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
+        : "");
     body = `
       <div class="focus-top">
-        ${gaugeHtml || strip}
+        ${gaugeHtml}
+        ${strip}
         ${statusMetrics.map(renderMetric).join("")}
       </div>
       <div class="focus-chart">${renderChart(collector.chart, { wide: true, tall: true })}</div>`;
@@ -558,7 +551,7 @@ function renderCard(collector, index, options = {}) {
       ${statusMetrics.map(renderMetric).join("")}
       ${rest.map(renderMetric).join("")}
     </div>`;
-    body += renderChart(collector.chart);
+    body += renderChart(collector.chart, { wide: Boolean(options.wideChart) });
     if (collector.error) {
       body += `<div class="card-error">${esc(collector.error)}</div>`;
     }
@@ -638,14 +631,8 @@ function renderServiceTile(metric, index, options = {}) {
 function renderMcPanel(metric) {
   const status = metric.state || "error";
   return `<article class="mc-hero" data-status="${esc(status)}">
-    <div class="mc-hero-art" aria-hidden="true">
-      <span class="mc-cube c1"></span>
-      <span class="mc-cube c2"></span>
-      <span class="mc-cube c3"></span>
-      <span class="mc-cube c4"></span>
-      <span class="mc-cube c5"></span>
-      <span class="mc-pulse" data-state="${esc(status)}"></span>
-    </div>
+    <div class="mc-hero-led" data-state="${esc(status)}" aria-hidden="true"></div>
+    <div class="mc-hero-label">MINECRAFT</div>
     <div class="mc-hero-state" data-state="${esc(status)}">${esc(metric.value)}</div>
     ${metric.note ? `<div class="mc-hero-note">${esc(metric.note)}</div>` : ""}
   </article>`;
@@ -659,37 +646,18 @@ function cardOrEmpty(collector, emptyMsg, options = {}) {
   return renderCard(collector, 0, options);
 }
 
-/** Net = Ads (Pi-hole) + VPN + LAN — charts dominate. */
+/** Net = Pi-hole (controls + chart) + VPN traffic — not a Home clone. */
 function renderNetView(data) {
   if (!netGrid) return;
   const pihole = findCollector(data, "pihole");
   const vpn = findCollector(data, "wireguard");
-  const sys = findCollector(data, "system");
-  const lan = withMetrics(sys, NET_LAN_LABELS);
 
-  const parts = [];
-  parts.push(`<div class="page-slot page-slot--ads">${cardOrEmpty(pihole, "pihole offline", { chartFocus: true })}</div>`);
-
-  const vpnHtml = vpn
-    ? renderCard(vpn, 1, { chartFocus: true })
-    : `<div class="empty-state">vpn offline</div>`;
-  let lanHtml = `<div class="empty-state">lan offline</div>`;
-  if (lan && (lan.metrics || []).length) {
-    lanHtml = renderCard({
-      ...lan,
-      id: "lan",
-      label: "LAN",
-      icon: "cpu",
-      chart: null,
-      actions: [],
-    }, 2);
-  }
-  parts.push(`<div class="page-slot page-slot--vpn">${vpnHtml}</div>`);
-  parts.push(`<div class="page-slot page-slot--lan">${lanHtml}</div>`);
-  netGrid.innerHTML = parts.join("");
+  netGrid.innerHTML = `
+    <div class="page-slot page-slot--ads">${cardOrEmpty(pihole, "pihole offline")}</div>
+    <div class="page-slot page-slot--vpn">${cardOrEmpty(vpn, "vpn offline", { chartFocus: true })}</div>`;
 }
 
-/** Host = System + Disk side by side, gauges + tall charts. */
+/** Host = System + Disk, charts fill each column. */
 function renderHostView(data) {
   if (!hostGrid) return;
   const rawSys = findCollector(data, "system");
@@ -704,7 +672,9 @@ function renderHostView(data) {
     <div class="page-slot page-slot--disk">${cardOrEmpty(disk, "disk offline", { chartFocus: true })}</div>`;
 }
 
-/** Apps = Minecraft + media featured, other services as roomy tiles. */
+/** Apps = only the few that matter (no long systemd dump). */
+const APPS_SHOW = ["minecraft", "jellyfin", "samba", "pihole", "caddy", "hub"];
+
 function renderAppsView(collector) {
   if (!appsGrid) return;
   if (!collector) {
@@ -716,30 +686,26 @@ function renderAppsView(collector) {
     return;
   }
 
-  const units = serviceStatusMetrics(collector);
-  const featured = [];
-  const rest = [];
-  for (const m of units) {
-    const id = String(m.id || "").toLowerCase();
-    if (m.game || id === "minecraft") featured.push({ kind: "mc", m });
-    else if (m.media || id === "jellyfin" || id === "samba") featured.push({ kind: "media", m });
-    else rest.push(m);
+  const byId = new Map(
+    serviceStatusMetrics(collector).map((m) => [String(m.id || "").toLowerCase(), m]),
+  );
+  const parts = [];
+  for (const id of APPS_SHOW) {
+    const m = byId.get(id);
+    if (!m) continue;
+    if (id === "minecraft") {
+      parts.push(`<div class="apps-feature apps-feature--mc">${renderMcPanel(m)}</div>`);
+    } else {
+      parts.push(`<div class="apps-feature">${renderServiceTile(m, 0, {
+        showNote: Boolean(m.media || m.note),
+        size: "lg",
+      })}</div>`);
+    }
   }
 
-  const featureHtml = featured.map((item) => {
-    if (item.kind === "mc") {
-      return `<div class="apps-feature">${renderMcPanel(item.m)}</div>`;
-    }
-    return `<div class="apps-feature">${renderServiceTile(item.m, 0, { showNote: true, size: "lg" })}</div>`;
-  }).join("");
-
-  const restHtml = rest.length
-    ? `<div class="apps-rest">${rest.map((m, i) => renderServiceTile(m, i)).join("")}</div>`
-    : "";
-
-  appsGrid.innerHTML = `
-    <div class="apps-featured">${featureHtml || `<div class="empty-state">no featured apps</div>`}</div>
-    ${restHtml}`;
+  appsGrid.innerHTML = parts.length
+    ? `<div class="apps-featured apps-featured--six">${parts.join("")}</div>`
+    : `<div class="empty-state">no apps configured</div>`;
 }
 
 /* ---------- page navigation ---------- */
@@ -786,16 +752,14 @@ function setPage(page, options = {}) {
 function paintPage(data) {
   const svc = servicesCollector(data);
   if (currentPage === "hub") {
+    // Home = overview only (classic cards). Deep charts live on Net / Host.
     const collectors = (data.collectors || [])
       .filter((c) => c.id !== "services")
       .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
     if (!collectors.length) {
       grid.innerHTML = `<div class="empty-state">no active modules</div>`;
     } else {
-      // Home: chart-first cards (more plot, less number chrome).
-      grid.innerHTML = collectors.map((c, i) => renderCard(c, i, {
-        chartFocus: c.id === "pihole" || c.id === "system" || c.id === "wireguard" || c.id === "smart",
-      })).join("");
+      grid.innerHTML = collectors.map((c, i) => renderCard(c, i)).join("");
     }
   } else if (currentPage === "net") {
     renderNetView(data);

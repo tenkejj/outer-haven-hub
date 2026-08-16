@@ -360,9 +360,8 @@ body {
   min-width: 0;
   min-height: 0;
   display: grid;
-  /* Chart-heavy home: more room for plots than metric strips */
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: 1fr 1.45fr;
+  grid-template-rows: 1.2fr 1.2fr;
   gap: 10px;
   align-content: stretch;
   justify-content: stretch;
@@ -378,11 +377,11 @@ body {
 }
 
 .page-grid--net {
-  grid-template-columns: 1.4fr 1fr;
-  grid-template-rows: 1.35fr 1fr;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1.55fr 1fr;
   grid-template-areas:
-    "ads ads"
-    "vpn lan";
+    "ads"
+    "vpn";
 }
 
 .page-grid--host {
@@ -392,7 +391,7 @@ body {
 
 .page-grid--apps {
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(160px, 1.15fr) minmax(120px, 1fr);
+  grid-template-rows: 1fr;
 }
 
 .page-slot {
@@ -412,13 +411,18 @@ body {
 
 .page-slot--ads { grid-area: ads; }
 .page-slot--vpn { grid-area: vpn; }
-.page-slot--lan { grid-area: lan; }
 
 .apps-featured {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
+  height: 100%;
+}
+
+.apps-featured--six {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: 1fr 1fr;
 }
 
 .apps-feature {
@@ -433,22 +437,14 @@ body {
   width: 100%;
 }
 
-.apps-rest {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: minmax(72px, 1fr);
-  gap: 8px;
-  min-height: 0;
-  overflow: auto;
-}
-
 .svc-tile--lg {
-  min-height: 140px;
-  padding: 16px;
+  min-height: 0;
+  padding: 18px;
+  justify-content: space-between;
 }
 
-.svc-tile--lg .svc-tile-name { font-size: 18px; }
-.svc-tile--lg .svc-tile-state { font-size: 32px; }
+.svc-tile--lg .svc-tile-name { font-size: 20px; }
+.svc-tile--lg .svc-tile-state { font-size: 36px; }
 
 @media (max-width: 900px) {
   .page-grid--net {
@@ -456,17 +452,15 @@ body {
     grid-template-rows: auto;
     grid-template-areas:
       "ads"
-      "vpn"
-      "lan";
+      "vpn";
   }
   .page-grid--host {
     grid-template-columns: 1fr;
   }
-  .apps-featured {
+  .apps-featured,
+  .apps-featured--six {
     grid-template-columns: 1fr;
-  }
-  .apps-rest {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
   }
 }
 
@@ -585,7 +579,7 @@ body {
   text-transform: none;
 }
 
-/* ---------- chart-first focus cards ---------- */
+/* ---------- chart-first focus cards (Host / VPN) ---------- */
 
 .card--chart-focus {
   min-height: 0;
@@ -593,9 +587,10 @@ body {
 
 .card-body--focus {
   display: flex !important;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: column !important;
+  gap: 8px;
   min-height: 0;
+  flex: 1 1 auto;
 }
 
 .focus-top {
@@ -609,30 +604,54 @@ body {
 .focus-chart {
   flex: 1 1 auto;
   min-height: 0;
+  height: 0; /* take all leftover column height */
   display: flex;
+  flex-direction: column;
 }
 
+.focus-chart .chart-wrap,
 .focus-chart .chart-wrap--tall {
-  flex: 1;
+  flex: 1 1 auto;
   width: 100%;
+  height: 100%;
   min-height: 0;
-}
-
-.chart-wrap--tall {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 0;
-}
-
-.chart-wrap--tall .chart {
-  flex: 1 1 auto;
-  min-height: 180px;
-  height: auto;
 }
 
 .chart-wrap--tall .chart-legend {
   flex: 0 0 auto;
+}
+
+.chart-wrap--tall .chart,
+.focus-chart .chart {
+  flex: 1 1 auto;
+  height: 0; /* SVG gets a real box to fill */
+  min-height: 0;
+}
+
+.chart-wrap--tall .chart svg,
+.focus-chart .chart svg,
+.hero-right .chart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hero-right .chart-wrap,
+.hero-right .chart-wrap--tall {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-right .chart {
+  flex: 1 1 auto;
+  height: 0;
+  min-height: 0;
 }
 
 .metrics-row--strip .metric-label {
@@ -645,31 +664,28 @@ body {
   font-size: 18px;
 }
 
-.hero-rail--compact {
-  margin-top: 0;
+.card--chart-focus .card-head {
+  margin-bottom: 2px;
 }
 
-.card--chart-focus.card--hero .card-body--hero {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.card--chart-focus .card-index {
+  display: none;
 }
 
-.card--chart-focus.card--hero .focus-chart {
-  flex: 1 1 auto;
+/* Touch: keep action rail above charts, large hit targets */
+.hero-rail {
+  position: relative;
+  z-index: 2;
 }
 
-/* Gauges — compact rings next to charts */
-.gauge-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.card--hero .hero-rail .actions--segment .action {
+  min-height: 44px;
 }
 
 .gauge {
   position: relative;
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   flex: 0 0 auto;
 }
 
@@ -808,7 +824,7 @@ body {
 .media-grid .svc-tile-name { font-size: 18px; }
 .media-grid .svc-tile-state { font-size: 28px; }
 
-/* ---------- Minecraft hero panel ---------- */
+/* ---------- Minecraft status panel ---------- */
 
 .mc-hero {
   flex: 1;
@@ -817,7 +833,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   border: 1px solid var(--line);
   background: var(--panel);
   padding: 20px;
@@ -830,41 +846,18 @@ body {
   background: color-mix(in srgb, var(--error) 8%, var(--panel));
 }
 
-.mc-hero-art {
-  position: relative;
-  width: 180px;
-  height: 120px;
-}
-
-.mc-cube {
-  position: absolute;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line-hi);
-  background: var(--panel-2);
-}
-
-.mc-cube.c1 { left: 40px; top: 48px; background: color-mix(in srgb, var(--accent) 35%, var(--panel)); }
-.mc-cube.c2 { left: 72px; top: 28px; background: color-mix(in srgb, var(--accent) 55%, var(--panel)); }
-.mc-cube.c3 { left: 104px; top: 48px; background: color-mix(in srgb, var(--accent) 25%, var(--panel)); }
-.mc-cube.c4 { left: 72px; top: 68px; background: color-mix(in srgb, var(--accent) 45%, var(--panel)); }
-.mc-cube.c5 { left: 20px; top: 20px; width: 22px; height: 22px; opacity: 0.55; }
-
-.mc-pulse {
-  position: absolute;
-  right: 18px;
-  top: 18px;
-  width: 18px;
-  height: 18px;
+.mc-hero-led {
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--line-hi);
   background: var(--error);
 }
 
-.mc-pulse[data-state="ok"] { background: var(--ok); }
-.mc-pulse[data-state="warning"] { background: var(--warn); }
-.mc-pulse[data-state="error"] { background: var(--error); }
+.mc-hero-led[data-state="ok"] { background: var(--ok); }
+.mc-hero-led[data-state="warning"] { background: var(--warn); }
+.mc-hero-led[data-state="error"] { background: var(--error); }
 
-.mc-hero[data-status="ok"] .mc-pulse {
+.mc-hero[data-status="ok"] .mc-hero-led {
   animation: mc-blink 1.6s steps(1, end) infinite;
 }
 
@@ -873,8 +866,14 @@ body {
   50% { opacity: 0.35; }
 }
 
+.mc-hero-label {
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  color: var(--text-dim);
+}
+
 .mc-hero-state {
-  font-size: 42px;
+  font-size: 48px;
   font-weight: 700;
   letter-spacing: 0.28em;
   color: var(--text-dim);
