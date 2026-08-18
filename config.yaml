@@ -1,6 +1,6 @@
-# Outer Haven Hub — konfiguracja włączonych źródeł danych.
-# Dodanie nowego collectora = dopisanie id poniżej + wpis w registry.py.
-# Kolejność na liście = kolejność kart na dashboardzie (HUB).
+# Outer Haven Hub — enabled data sources.
+# New collector = id below + entry in registry.py.
+# List order = card order on Home.
 
 enabled_collectors:
   - pihole
@@ -8,80 +8,79 @@ enabled_collectors:
   - system
   - smart
   - services
-  # - nextcloud   ← odkomentuj, gdy dodasz ten moduł
+  # - nextcloud
 
 collectors:
   pihole:
-    # Adres bazowy API Pi-hole (ta sama maszyna → localhost).
-    # Hasło aplikacji: backend/.env → PIHOLE_APP_PASSWORD
-    # Jeśli Caddy zajmuje 80/443, Pi-hole często jest na :8080 →
-    # "http://127.0.0.1:8080" — patrz DEPLOY.md.
+    # Pi-hole API base. App password: backend/.env → PIHOLE_APP_PASSWORD
+    # If Caddy owns 80/443, Pi-hole is often on :8080 — see DEPLOY.md.
     base_url: "http://127.0.0.1"
 
   smart:
-    # Ścieżka urządzenia SSD. Musi być identyczna z wpisem w
-    # deploy/sudoers-outer-haven-hub (sudo porównuje argumenty 1:1).
+    # Must match deploy/sudoers-outer-haven-hub (sudo argv 1:1).
     device: "/dev/sda"
-    # Punkt montowania do metryki FREE (shutil.disk_usage).
     mount: "/"
 
   system:
-    # Interfejs do NET IN/OUT (strona NET). eth0 typowe na Pi Ethernet.
+    # Interface for NET IN/OUT (Net page). eth0 typical on Pi Ethernet.
     iface: "eth0"
 
   wireguard:
-    # Mapa klucz_publiczny → przyjazna nazwa na karcie.
-    # Klucz bierzesz z `sudo wg show` (kolumna peer).
     peer_names:
       # "YOUR_PEER_PUBLIC_KEY_BASE64=": "laptop"
       # "ANOTHER_PEER_PUBLIC_KEY_BASE64=": "phone"
 
   services:
-    # Jednostki systemd — strona SVC (wszystkie) / MEDIA (media: true).
-    # critical: false → DOWN nie psuje zbiorczego statusu (np. bluetooth).
-    # note = tekstowy URL/port (bez sekretów).
+    # systemd units — Svc (all) / Media (media: true) / MC (game: true).
+    # critical: false → OFF does not trip overall status.
     units:
       - id: jellyfin
         unit: jellyfin.service
-        label: JELLYFIN
+        label: Jellyfin
         media: true
         note: "http://mother-base:8096"
       - id: samba
         unit: smbd.service
-        label: SMB
+        label: Files
         media: true
         note: "smb://mother-base"
+      - id: minecraft
+        unit: minecraft.service
+        label: Minecraft
+        game: true
+        critical: false
+        note: "mother-base:25565"
       - id: nmbd
         unit: nmbd.service
         label: NMBD
       - id: winbind
         unit: winbind.service
-        label: WINBIND
+        label: Winbind
         critical: false
       - id: wsdd2
         unit: wsdd2.service
-        label: WSDD2
+        label: WSDD
       - id: caddy
         unit: caddy.service
-        label: CADDY
+        label: Caddy
       - id: pihole
         unit: pihole-FTL.service
-        label: PIHOLE
+        label: Pi-hole
       - id: unbound
         unit: unbound.service
-        label: UNBOUND
+        label: Unbound
       - id: hub
         unit: outer-haven-hub.service
-        label: HUB
+        label: Hub
       - id: ssh
         unit: ssh.service
         label: SSH
       - id: nm
         unit: NetworkManager.service
-        label: NETMGR
+        label: Net
       - id: avahi
         unit: avahi-daemon.service
-        label: AVAHI
+        label: Avahi
         critical: false
       - id: bluetooth
         unit: bluetooth.service
@@ -89,9 +88,9 @@ collectors:
         critical: false
       - id: cron
         unit: cron.service
-        label: CRON
+        label: Cron
         critical: false
       - id: smart
         unit: smartmontools.service
-        label: SMARTD
+        label: SMART
         critical: false

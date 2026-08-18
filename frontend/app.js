@@ -1,33 +1,43 @@
-/* Outer Haven Hub — renderowanie kart z /api/dashboard + akcje dotykowe.
-   Frontend zna wyłącznie kontrakt z base.py (metryki / chart / actions).
+/* Outer Haven Hub — cards from /api/dashboard + touch actions.
+   Frontend only knows the base.py contract (metrics / chart / actions).
 
-   Strony: HUB | DNS | NET | DISK | SYS | SVC | MEDIA
-   (#hub … #media). Collector `services` omija siatkę HUB. */
+   Pages: Home | Net | Host | Apps  (#hub #net #host #apps)
+   Collector `services` skips the Home grid. */
 
 const POLL_MS = 5000;
-/* Status na karcie (krótko) vs badge w topbarze (MGS-owo, bez 0x…). */
 const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
 const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
-const PAGES = ["hub", "dns", "net", "disk", "sys", "svc", "media"];
+const PAGES = ["hub", "net", "host", "apps"];
+const PAGE_TITLE = {
+  hub: "Home",
+  net: "Net",
+  host: "Host",
+  apps: "Apps",
+};
+/* Old deep-links from the 8-tab UI → new pages */
+const PAGE_ALIASES = {
+  dns: "net",
+  ads: "net",
+  disk: "host",
+  sys: "host",
+  svc: "apps",
+  media: "apps",
+  mc: "apps",
+  minecraft: "apps",
+};
 const HUB_SYSTEM_LABELS = new Set(["CPU", "RAM", "TEMP"]);
 const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]);
 const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
 
 const grid = document.getElementById("dashboard-grid");
-const dnsGrid = document.getElementById("dns-grid");
 const netGrid = document.getElementById("net-grid");
-const diskGrid = document.getElementById("disk-grid");
-const sysGrid = document.getElementById("sys-grid");
-const svcGrid = document.getElementById("svc-grid");
-const mediaGrid = document.getElementById("media-grid");
-const dnsMeta = document.getElementById("dns-meta");
-const netMeta = document.getElementById("net-meta");
-const diskMeta = document.getElementById("disk-meta");
-const sysMeta = document.getElementById("sys-meta");
-const svcMeta = document.getElementById("svc-meta");
-const mediaMeta = document.getElementById("media-meta");
+const hostGrid = document.getElementById("host-grid");
+const appsGrid = document.getElementById("apps-grid");
 const pageNav = document.getElementById("page-nav");
+const sideNav = document.getElementById("side-nav");
+const shellEl = document.getElementById("shell");
+const themeSwitch = document.getElementById("theme-switch");
 const footPageEl = document.getElementById("foot-page");
 const overallEl = document.getElementById("overall");
 const clockTimeEl = document.getElementById("clock-time");
@@ -41,6 +51,173 @@ let actionBusy = false;
 /** Ostatni payload dashboardu — przełączanie stron bez czekania na poll. */
 let lastDashboard = null;
 let currentPage = "hub";
+
+/* ---------- themes: HUD (default) | Wall (sidebar) | Deck (bottom dock) ---------- */
+
+const THEMES = ["hud", "wall", "deck"];
+const THEME_LABEL = { hud: "HUD", wall: "WALL", deck: "DECK" };
+let currentTheme = "hud";
+
+function themeFromUrl() {
+  const param = new URLSearchParams(location.search).get("theme");
+  const t = String(param || "").toLowerCase();
+  if (THEMES.includes(t)) return t;
+  try {
+    const saved = localStorage.getItem("oh-theme");
+    if (THEMES.includes(saved)) return saved;
+  } catch (_) { /* ignore */ }
+  return "hud";
+}
+
+function setTheme(theme, options = {}) {
+  const next = THEMES.includes(theme) ? theme : "hud";
+  currentTheme = next;
+  if (shellEl) shellEl.dataset.theme = next;
+  if (themeSwitch) themeSwitch.textContent = THEME_LABEL[next] || "HUD";
+  try { localStorage.setItem("oh-theme", next); } catch (_) { /* ignore */ }
+  if (options.updateUrl !== false) {
+    const url = new URL(location.href);
+    if (next === "hud") url.searchParams.delete("theme");
+    else url.searchParams.set("theme", next);
+    history.replaceState(null, "", `${url.pathname}${url.search}${location.hash}`);
+  }
+  if (lastDashboard) paintPage(lastDashboard);
+}
+
+function cycleTheme() {
+  const i = THEMES.indexOf(currentTheme);
+  setTheme(THEMES[(i + 1) % THEMES.length]);
+}
+
+function formatPercentValue(raw) {
+  const n = parseFloat(String(raw));
+  if (!Number.isFinite(n)) return esc(String(raw ?? "—"));
+  return `${esc(String(Math.round(n * 10) / 10))}<span class="wall-stat-unit">%</span>`;
+}
+
+/** Wall Home — four status tiles, no charts (charts live on Net/Host). */
+function renderWallHome(data) {
+  const pihole = findCollector(data, "pihole");
+  const vpn = findCollector(data, "wireguard");
+  const sys = findCollector(data, "system");
+  const svc = servicesCollector(data);
+
+  const pctBlock = metricValue(pihole, "% BLOCK");
+  const block = metricValue(pihole, "BLOCK");
+  const peers = metricValue(vpn, "PEERS");
+  const cpu = metricValue(sys, "CPU");
+  const temp = metricValue(sys, "TEMP");
+  const summary = svc ? serviceSummary(svc) : { up: "—", down: "—" };
+
+  const mc = serviceStatusMetrics(svc || {}).find(
+    (m) => String(m.id || "").toLowerCase() === "minecraft",
+  );
+  const mcVal = mc ? mc.value : "—";
+
+  return `<div class="wall-home">
+    <div class="wall-status-row">
+      <div class="wall-stat" data-status="${esc(pihole?.status || "error")}" data-jump="net" role="button" tabindex="0">
+        <div class="wall-stat-label">DNS</div>
+        <div class="wall-stat-value">${formatPercentValue(pctBlock)}</div>
+        <div class="wall-stat-sub">${esc(block)} blocked</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(vpn?.status || "error")}" data-jump="net" role="button" tabindex="0">
+        <div class="wall-stat-label">VPN</div>
+        <div class="wall-stat-value">${esc(String(peers))}</div>
+        <div class="wall-stat-sub">peers online</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(sys?.status || "error")}" data-jump="host" role="button" tabindex="0">
+        <div class="wall-stat-label">Host</div>
+        <div class="wall-stat-value">${esc(String(cpu))}</div>
+        <div class="wall-stat-sub">${esc(String(temp))} · CPU</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(svc?.status || "error")}" data-jump="apps" role="button" tabindex="0">
+        <div class="wall-stat-label">Apps</div>
+        <div class="wall-stat-value">${esc(String(summary.up))}<span class="wall-stat-unit">/${esc(String(Number(summary.up) + Number(summary.down) || "—"))}</span></div>
+        <div class="wall-stat-sub">MC ${esc(mcVal)}</div>
+      </div>
+    </div>
+    <div class="wall-hint">Sidebar → Net / Host / Apps for charts · tap tile to jump</div>
+  </div>`;
+}
+
+/** Deck Home — 2×2 launch tiles (bottom dock for navigation). */
+function renderDeckHome(data) {
+  const pihole = findCollector(data, "pihole");
+  const sys = findCollector(data, "system");
+  const disk = findCollector(data, "smart");
+  const svc = servicesCollector(data);
+  const mc = serviceStatusMetrics(svc || {}).find(
+    (m) => String(m.id || "").toLowerCase() === "minecraft",
+  );
+
+  const tiles = [
+    {
+      page: "net",
+      label: "Network",
+      value: metricValue(pihole, "% BLOCK"),
+      sub: metricValue(pihole, "BLOCK"),
+      hint: "Pi-hole + VPN",
+      status: pihole?.status || "error",
+      isPercent: true,
+    },
+    {
+      page: "host",
+      label: "System",
+      value: metricValue(sys, "CPU"),
+      sub: metricValue(sys, "TEMP"),
+      hint: "CPU · RAM · charts",
+      status: sys?.status || "error",
+    },
+    {
+      page: "host",
+      label: "Storage",
+      value: metricValue(disk, "FREE"),
+      sub: metricValue(disk, "HEALTH"),
+      hint: "SMART disk",
+      status: disk?.status || "error",
+    },
+    {
+      page: "apps",
+      label: "Minecraft",
+      value: mc ? mc.value : "—",
+      sub: mc?.note || "mother-base:25565",
+      hint: "Tap for all apps",
+      status: mc?.state || "error",
+    },
+  ];
+
+  return `<div class="deck-home">
+    <div class="deck-launch">
+      ${tiles.map((t) => {
+        const val = t.isPercent ? formatPercentValue(t.value) : esc(String(t.value));
+        return `<button type="button" class="deck-tile" data-page="${esc(t.page)}" data-status="${esc(t.status)}">
+          <div class="deck-tile-label">${esc(t.label)}</div>
+          <div class="deck-tile-value">${val}</div>
+          <div class="deck-tile-sub">${esc(String(t.sub))}</div>
+          <div class="deck-tile-hint">${esc(t.hint)} →</div>
+        </button>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function syncNavActive(page) {
+  if (pageNav) {
+    pageNav.querySelectorAll(".page-tab").forEach((btn) => {
+      const on = btn.dataset.page === page;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  if (sideNav) {
+    sideNav.querySelectorAll(".side-tab").forEach((btn) => {
+      const on = btn.dataset.page === page;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+}
 
 /* ---------- kiosk viewport scale ----------
    Layout żyje w stałym canvasie 1024×600 (gęsty HUD). Skalujemy non-uniform
@@ -170,7 +347,7 @@ function renderMetric(metric) {
   </div>`;
 }
 
-/** Hero Pi-hole: status BLOCK — LED + jedno słowo (BLOCKING / PAUSED). */
+/** Hero Pi-hole: BLOCK status — LED + short word (BLOCKING / PAUSED). */
 function renderBlockPlate(metric) {
   const state = metric.state || "ok";
   const raw = String(metric.value || "—").toUpperCase();
@@ -333,15 +510,17 @@ function renderChart(chart, options = {}) {
   }
 
   const wide = Boolean(options.wide);
+  const tall = Boolean(options.tall);
   const dimmed = Boolean(options.dimmed);
-  const width = wide ? 520 : 300;
-  const height = wide ? 160 : 112;
-  const padX = 4;
-  const padY = 7;
+  // Tall focus pages: more plot pixels, less number chrome.
+  const width = tall ? 960 : (wide ? 520 : 300);
+  const height = tall ? 300 : (wide ? 168 : 128);
+  const padX = tall ? 8 : 4;
+  const padY = tall ? 12 : 7;
 
   const series = chart.series.map((s) => ({
     ...s,
-    points: downsample(s.points, CHART_MAX_POINTS),
+    points: downsample(s.points, tall ? 96 : CHART_MAX_POINTS),
   })).filter((s) => s.points.length);
 
   if (!series.length) return "";
@@ -358,8 +537,14 @@ function renderChart(chart, options = {}) {
   const caption = chart.caption
     ? `<div class="chart-caption">${esc(chart.caption)}</div>`
     : "";
+  const wrapClass = [
+    "chart-wrap",
+    wide ? "chart-wrap--wide" : "",
+    tall ? "chart-wrap--tall" : "",
+    dimmed ? "chart-wrap--dim" : "",
+  ].filter(Boolean).join(" ");
 
-  return `<div class="chart-wrap${wide ? " chart-wrap--wide" : ""}${dimmed ? " chart-wrap--dim" : ""}" aria-hidden="true">
+  return `<div class="${wrapClass}" aria-hidden="true">
     ${title}
     ${caption}
     <div class="chart-legend">${chartLegend(series)}</div>
@@ -367,6 +552,28 @@ function renderChart(chart, options = {}) {
       <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none">
         ${plot}
       </svg>
+    </div>
+  </div>`;
+}
+
+/** Compact SVG ring for a percent metric — visual first on Host. */
+function renderGauge(metric) {
+  // Values often arrive as "46%" / "30%" — parseFloat, not Number().
+  const pct = Math.max(0, Math.min(100, parseFloat(String(metric.value)) || 0));
+  const state = metric.state || "";
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  const dash = (pct / 100) * c;
+  return `<div class="gauge" data-state="${esc(state)}">
+    <svg viewBox="0 0 80 80" class="gauge-svg" aria-hidden="true">
+      <circle class="gauge-track" cx="40" cy="40" r="${r}" />
+      <circle class="gauge-fill" cx="40" cy="40" r="${r}"
+        stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}"
+        transform="rotate(-90 40 40)" />
+    </svg>
+    <div class="gauge-readout">
+      <span class="gauge-num">${esc(String(Math.round(pct)))}<span class="gauge-unit">%</span></span>
+      <span class="gauge-label">${esc(metric.label)}</span>
     </div>
   </div>`;
 }
@@ -445,11 +652,14 @@ function renderToolActions(collector) {
 
 /* ---------- karta ---------- */
 
-function renderCard(collector, index) {
+function renderCard(collector, index, options = {}) {
   const status = collector.status || "error";
   const metrics = collector.metrics || [];
   const layout = collector.layout || "default";
   const isHero = layout === "hero";
+  // chartFocus = stacked metrics-on-top / chart-fills-rest (Host cards).
+  // Never combine with hero — hero keeps proven left|right split.
+  const chartFocus = Boolean(options.chartFocus) && !isHero;
   const idx = String(index + 1).padStart(2, "0");
   const chartDimmed = isHero && status === "warning";
 
@@ -458,6 +668,12 @@ function renderCard(collector, index) {
   const rest = metrics.filter(
     (m) => m.type !== "number" && m.type !== "percent" && m.type !== "status",
   );
+  const gauges = chartFocus
+    ? big.filter((m) => {
+      const lab = String(m.label).toUpperCase();
+      return m.type === "percent" || lab === "RAM" || lab === "CPU";
+    })
+    : [];
 
   let body = "";
 
@@ -474,8 +690,29 @@ function renderCard(collector, index) {
         </div>
         ${rest.map(renderMetric).join("")}
       </div>`;
-    const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, dimmed: chartDimmed })}</div>`;
+    const right = `<div class="hero-right">${renderChart(collector.chart, { wide: true, tall: true, dimmed: chartDimmed })}</div>`;
     body = left + right;
+    if (collector.error) {
+      body += `<div class="card-error">${esc(collector.error)}</div>`;
+    }
+  } else if (chartFocus) {
+    // Compact strip + gauges; chart MUST fill remaining height (see CSS height:0 trick).
+    const gaugeHtml = gauges.length
+      ? `<div class="gauge-row">${gauges.slice(0, 3).map(renderGauge).join("")}</div>`
+      : "";
+    const otherBig = big.filter((m) => !gauges.includes(m));
+    const strip = otherBig.length
+      ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(otherBig.length, 4)}">${otherBig.map(renderMetric).join("")}</div>`
+      : (!gauges.length && big.length
+        ? `<div class="metrics-row metrics-row--strip metrics-row--${Math.min(big.length, 4)}">${big.map(renderMetric).join("")}</div>`
+        : "");
+    body = `
+      <div class="focus-top">
+        ${gaugeHtml}
+        ${strip}
+        ${statusMetrics.map(renderMetric).join("")}
+      </div>
+      <div class="focus-chart">${renderChart(collector.chart, { wide: true, tall: true })}</div>`;
     if (collector.error) {
       body += `<div class="card-error">${esc(collector.error)}</div>`;
     }
@@ -485,24 +722,27 @@ function renderCard(collector, index) {
       ${statusMetrics.map(renderMetric).join("")}
       ${rest.map(renderMetric).join("")}
     </div>`;
-    body += renderChart(collector.chart);
+    body += renderChart(collector.chart, { wide: Boolean(options.wideChart) });
     if (collector.error) {
       body += `<div class="card-error">${esc(collector.error)}</div>`;
     }
   }
 
-  const layoutClass = isHero ? " card--hero" : "";
-  return `<article class="card${layoutClass}" data-id="${esc(collector.id)}" data-status="${esc(status)}">
+  const layoutClass = [
+    isHero ? "card--hero" : "",
+    chartFocus ? "card--chart-focus" : "",
+  ].filter(Boolean).join(" ");
+  return `<article class="card${layoutClass ? ` ${layoutClass}` : ""}" data-id="${esc(collector.id)}" data-status="${esc(status)}">
     <header class="card-head">
-      <span class="card-index">0x${idx}</span>
+      <span class="card-index">${idx}</span>
       <span class="card-title">${esc(collector.label)}</span>
       <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
     </header>
-    <div class="card-body${isHero ? " card-body--hero" : ""}">${body}</div>
+    <div class="card-body${isHero ? " card-body--hero" : ""}${chartFocus ? " card-body--focus" : ""}">${body}</div>
   </article>`;
 }
 
-/* ---------- SVC / MEDIA / focus pages ---------- */
+/* ---------- Svc / Media / Minecraft / focus pages ---------- */
 
 function findCollector(data, id) {
   return (data.collectors || []).find((c) => c.id === id) || null;
@@ -540,166 +780,112 @@ function metricValue(collector, label) {
   return m ? m.value : "—";
 }
 
-/** Karta jednostki systemd — ten sam chrome co HUB (pasek statusu, L-feel). */
-function renderServiceCard(metric, index, options = {}) {
+/** Visual status tile — color + name, almost no prose. */
+function renderServiceTile(metric, index, options = {}) {
   const status = metric.state || "error";
-  const idx = String(index + 1).padStart(2, "0");
+  const size = options.size || "";
   const note = options.showNote && metric.note
-    ? `<div class="svc-note">${esc(metric.note)}</div>`
+    ? `<div class="svc-tile-note">${esc(metric.note)}</div>`
     : "";
-  const sub = options.subtitle
-    ? `<div class="svc-sub">${esc(options.subtitle)}</div>`
-    : "";
-  return `<article class="card svc-card" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
-    <header class="card-head">
-      <span class="card-index">0x${idx}</span>
-      <span class="card-title">${esc(metric.label)}</span>
-      <span class="card-code">${STATUS_CODE[status] || "ERR"}</span>
-    </header>
-    <div class="card-body svc-card-body">
-      <div class="svc-state" data-state="${esc(status)}">
-        <span class="mark" data-state="${esc(status)}"></span>
-        <span class="svc-value">${esc(metric.value)}</span>
-      </div>
-      ${sub}
-      ${note}
-    </div>
+  const art = options.art || "";
+  const sizeClass = size ? ` svc-tile--${size}` : "";
+  return `<article class="svc-tile${sizeClass}" data-id="${esc(metric.id || metric.label)}" data-status="${esc(status)}">
+    <div class="svc-tile-bar" aria-hidden="true"></div>
+    ${art}
+    <div class="svc-tile-name">${esc(metric.label)}</div>
+    <div class="svc-tile-led" data-state="${esc(status)}"></div>
+    <div class="svc-tile-state">${esc(metric.value)}</div>
+    ${note}
   </article>`;
 }
 
-function renderSvcView(collector) {
-  if (!svcGrid) return;
+function renderMcPanel(metric) {
+  const status = metric.state || "error";
+  return `<article class="mc-hero" data-status="${esc(status)}">
+    <div class="mc-hero-led" data-state="${esc(status)}" aria-hidden="true"></div>
+    <div class="mc-hero-label">MINECRAFT</div>
+    <div class="mc-hero-state" data-state="${esc(status)}">${esc(metric.value)}</div>
+    ${metric.note ? `<div class="mc-hero-note">${esc(metric.note)}</div>` : ""}
+  </article>`;
+}
+
+function cardOrEmpty(collector, emptyMsg, options = {}) {
+  if (!collector) return `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
+  if (collector.error && !(collector.metrics || []).length) {
+    return `<div class="empty-state">${esc(collector.error)}</div>`;
+  }
+  return renderCard(collector, 0, options);
+}
+
+/** Net = Pi-hole (controls + chart) + VPN traffic — not a Home clone. */
+function renderNetView(data) {
+  if (!netGrid) return;
+  const pihole = findCollector(data, "pihole");
+  const vpn = findCollector(data, "wireguard");
+
+  netGrid.innerHTML = `
+    <div class="page-slot page-slot--ads">${cardOrEmpty(pihole, "pihole offline")}</div>
+    <div class="page-slot page-slot--vpn">${cardOrEmpty(vpn, "vpn offline", { chartFocus: true })}</div>`;
+}
+
+/** Host = System + Disk, charts fill each column. */
+function renderHostView(data) {
+  if (!hostGrid) return;
+  const rawSys = findCollector(data, "system");
+  const sys = withMetrics(rawSys, SYS_EXTRA_LABELS);
+  const painted = sys && rawSys
+    ? { ...sys, chart: rawSys.chart, status: rawSys.status, label: "System" }
+    : sys;
+  const disk = findCollector(data, "smart");
+
+  hostGrid.innerHTML = `
+    <div class="page-slot page-slot--sys">${cardOrEmpty(painted, "system offline", { chartFocus: true })}</div>
+    <div class="page-slot page-slot--disk">${cardOrEmpty(disk, "disk offline", { chartFocus: true })}</div>`;
+}
+
+/** Apps = only the few that matter (no long systemd dump). */
+const APPS_SHOW = ["minecraft", "jellyfin", "samba", "pihole", "caddy", "hub"];
+
+function renderAppsView(collector) {
+  if (!appsGrid) return;
   if (!collector) {
-    svcGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    if (svcMeta) svcMeta.textContent = "NO DATA";
+    appsGrid.innerHTML = `<div class="empty-state">services offline</div>`;
     return;
   }
   if (collector.error && !serviceStatusMetrics(collector).length) {
-    svcGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    if (svcMeta) svcMeta.textContent = "ERR";
+    appsGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
     return;
   }
-  const units = serviceStatusMetrics(collector);
-  const sum = serviceSummary(collector);
-  if (svcMeta) svcMeta.textContent = `UP ${sum.up} · DOWN ${sum.down}`;
-  if (!units.length) {
-    svcGrid.innerHTML = `<div class="empty-state">no units</div>`;
-    return;
-  }
-  svcGrid.innerHTML = units.map((m, i) => renderServiceCard(m, i)).join("");
-}
 
-function renderMediaView(collector) {
-  if (!mediaGrid) return;
-  if (!collector) {
-    mediaGrid.innerHTML = `<div class="empty-state">services offline</div>`;
-    return;
-  }
-  const units = serviceStatusMetrics(collector).filter((m) => {
-    if (m.media) return true;
-    const id = String(m.id || "").toLowerCase();
-    const label = String(m.label || "").toUpperCase();
-    return id === "jellyfin" || id === "samba" || label === "JELLYFIN" || label === "SMB";
-  });
-  if (!units.length) {
-    mediaGrid.innerHTML = `<div class="empty-state">no media units</div>`;
-    return;
-  }
-  const allUp = units.every((m) => m.state === "ok");
-  if (mediaMeta) {
-    mediaMeta.textContent = allUp ? "LINK READY" : "CHECK UNITS";
-  }
-  mediaGrid.innerHTML = units.map((m, i) => {
-    const sub = String(m.id || m.label).toLowerCase() === "samba"
-      || String(m.label).toUpperCase() === "SMB"
-      ? "SAMBA SHARE"
-      : "STREAM";
-    return renderServiceCard(m, i, { showNote: true, subtitle: sub });
-  }).join("");
-}
-
-function renderFocusCollector(container, collector, emptyMsg) {
-  if (!container) return;
-  if (!collector) {
-    container.innerHTML = `<div class="empty-state">${esc(emptyMsg || "offline")}</div>`;
-    return;
-  }
-  if (collector.error && !(collector.metrics || []).length) {
-    container.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
-    return;
-  }
-  container.innerHTML = renderCard(collector);
-}
-
-function renderDnsView(data) {
-  const c = findCollector(data, "pihole");
-  if (dnsMeta) {
-    dnsMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "ERR"} · ${metricValue(c, "CLIENTS")} CLI`
-      : "NO DATA";
-  }
-  renderFocusCollector(dnsGrid, c, "pihole offline");
-}
-
-function renderDiskView(data) {
-  const c = findCollector(data, "smart");
-  if (diskMeta) {
-    diskMeta.textContent = c
-      ? `${STATUS_CODE[c.status] || "ERR"} · FREE ${metricValue(c, "FREE")}`
-      : "NO DATA";
-  }
-  renderFocusCollector(diskGrid, c, "ssd offline");
-}
-
-function renderSysView(data) {
-  const raw = findCollector(data, "system");
-  const c = withMetrics(raw, SYS_EXTRA_LABELS);
-  if (sysMeta) {
-    sysMeta.textContent = c
-      ? `THRTL ${metricValue(c, "THRTL")} · LOAD ${metricValue(c, "LOAD")}`
-      : "NO DATA";
-  }
-  renderFocusCollector(sysGrid, c, "system offline");
-}
-
-function renderLanCard(systemCollector) {
-  const lan = withMetrics(systemCollector, NET_LAN_LABELS);
-  if (!lan || !(lan.metrics || []).length) {
-    return `<div class="empty-state">lan offline</div>`;
-  }
-  // Osobna etykieta karty — nie mylić z SYSTEM PI na HUB.
-  return renderCard({
-    ...lan,
-    id: "lan",
-    label: "LAN IFACE",
-    icon: "cpu",
-    chart: null,
-    actions: [],
-  });
-}
-
-function renderNetView(data) {
-  if (!netGrid) return;
-  const vpn = findCollector(data, "wireguard");
-  const sys = findCollector(data, "system");
-  if (netMeta) {
-    const iface = metricValue(sys, "IFACE");
-    netMeta.textContent = vpn
-      ? `${STATUS_CODE[vpn.status] || "ERR"} · ${iface}`
-      : `LAN · ${iface}`;
-  }
+  const byId = new Map(
+    serviceStatusMetrics(collector).map((m) => [String(m.id || "").toLowerCase(), m]),
+  );
   const parts = [];
-  if (vpn) parts.push(renderCard(vpn));
-  else parts.push(`<div class="empty-state">vpn offline</div>`);
-  parts.push(renderLanCard(sys));
-  netGrid.innerHTML = parts.join("");
+  for (const id of APPS_SHOW) {
+    const m = byId.get(id);
+    if (!m) continue;
+    if (id === "minecraft") {
+      parts.push(`<div class="apps-feature apps-feature--mc">${renderMcPanel(m)}</div>`);
+    } else {
+      parts.push(`<div class="apps-feature">${renderServiceTile(m, 0, {
+        showNote: Boolean(m.media || m.note),
+        size: "lg",
+      })}</div>`);
+    }
+  }
+
+  appsGrid.innerHTML = parts.length
+    ? `<div class="apps-featured apps-featured--six">${parts.join("")}</div>`
+    : `<div class="empty-state">no apps configured</div>`;
 }
 
-/* ---------- nawigacja stron ---------- */
+/* ---------- page navigation ---------- */
 
 function pageFromHash() {
   const raw = (location.hash || "").replace(/^#/, "").toLowerCase();
-  return PAGES.includes(raw) ? raw : "hub";
+  if (PAGES.includes(raw)) return raw;
+  if (PAGE_ALIASES[raw]) return PAGE_ALIASES[raw];
+  return "hub";
 }
 
 function setPage(page, options = {}) {
@@ -712,15 +898,9 @@ function setPage(page, options = {}) {
     el.hidden = !on;
   });
 
-  if (pageNav) {
-    pageNav.querySelectorAll(".page-tab").forEach((btn) => {
-      const on = btn.dataset.page === next;
-      btn.classList.toggle("is-active", on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-  }
+  syncNavActive(next);
 
-  if (footPageEl) footPageEl.textContent = next.toUpperCase();
+  if (footPageEl) footPageEl.textContent = PAGE_TITLE[next] || next;
 
   if (options.updateHash !== false) {
     const want = `#${next}`;
@@ -737,26 +917,27 @@ function setPage(page, options = {}) {
 function paintPage(data) {
   const svc = servicesCollector(data);
   if (currentPage === "hub") {
-    const collectors = (data.collectors || [])
-      .filter((c) => c.id !== "services")
-      .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
-    if (!collectors.length) {
-      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+    if (currentTheme === "wall") {
+      grid.innerHTML = renderWallHome(data);
+    } else if (currentTheme === "deck") {
+      grid.innerHTML = renderDeckHome(data);
     } else {
-      grid.innerHTML = collectors.map(renderCard).join("");
+      // Home = overview only (classic cards). Deep charts live on Net / Host.
+      const collectors = (data.collectors || [])
+        .filter((c) => c.id !== "services")
+        .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
+      if (!collectors.length) {
+        grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+      } else {
+        grid.innerHTML = collectors.map((c, i) => renderCard(c, i)).join("");
+      }
     }
-  } else if (currentPage === "dns") {
-    renderDnsView(data);
   } else if (currentPage === "net") {
     renderNetView(data);
-  } else if (currentPage === "disk") {
-    renderDiskView(data);
-  } else if (currentPage === "sys") {
-    renderSysView(data);
-  } else if (currentPage === "svc") {
-    renderSvcView(svc);
-  } else if (currentPage === "media") {
-    renderMediaView(svc);
+  } else if (currentPage === "host") {
+    renderHostView(data);
+  } else if (currentPage === "apps") {
+    renderAppsView(svc);
   }
 }
 
@@ -768,15 +949,41 @@ if (pageNav) {
   });
 }
 
+if (sideNav) {
+  sideNav.addEventListener("click", (event) => {
+    const btn = event.target.closest(".side-tab");
+    if (!btn || !sideNav.contains(btn)) return;
+    setPage(btn.dataset.page);
+  });
+}
+
+if (themeSwitch) {
+  themeSwitch.addEventListener("click", () => cycleTheme());
+}
+
+/** Wall/Deck home tiles jump to a page without leaving theme. */
+grid.addEventListener("click", (event) => {
+  const jump = event.target.closest("[data-jump]");
+  if (jump && grid.contains(jump)) {
+    setPage(jump.dataset.jump);
+    return;
+  }
+  const deck = event.target.closest(".deck-tile[data-page]");
+  if (deck && grid.contains(deck)) {
+    setPage(deck.dataset.page);
+    return;
+  }
+});
+
 window.addEventListener("hashchange", () => {
   setPage(pageFromHash(), { updateHash: false });
 });
 
-/* Klawiatura: 1–7 lub strzałki — debug bez dotyku. */
+/* Keyboard: 1–4 or arrows */
 document.addEventListener("keydown", (event) => {
   if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   const key = event.key;
-  const digit = key >= "1" && key <= "7" ? Number(key) - 1 : -1;
+  const digit = key >= "1" && key <= "4" ? Number(key) - 1 : -1;
   if (digit >= 0 && digit < PAGES.length) setPage(PAGES[digit]);
   else if (key === "ArrowLeft" || key === "ArrowRight") {
     const i = PAGES.indexOf(currentPage);
@@ -866,7 +1073,7 @@ grid.addEventListener("click", (event) => {
   runAction(button.dataset.collector, button.dataset.action, button);
 });
 
-/* Akcje też na stronach fokusowych (DNS ma przyciski Pi-hole). */
+/* Akcje też na stronach fokusowych (Net ma przyciski Pi-hole). */
 document.querySelector(".shell")?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button || grid?.contains(button)) return;
@@ -876,10 +1083,11 @@ document.querySelector(".shell")?.addEventListener("click", (event) => {
 tickClock();
 setInterval(tickClock, 1000);
 
-/* Start na hashu (np. kiosk z zakładką #svc) */
+/* Theme from ?theme=wall|deck or localStorage; then hash page */
+setTheme(themeFromUrl(), { updateUrl: false });
 setPage(pageFromHash(), { updateHash: true });
 
-/* Codec boot splash — CONNECTING → LINK ESTABLISHED → fade out */
+/* Boot splash → fade out */
 function runBootSplash() {
   const splash = document.getElementById("boot-splash");
   const label = document.getElementById("boot-label");
@@ -889,7 +1097,6 @@ function runBootSplash() {
     return;
   }
 
-  // Dashboard ładuje się w tle pod splash
   refreshDashboard();
   setInterval(refreshDashboard, POLL_MS);
 

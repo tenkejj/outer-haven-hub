@@ -121,8 +121,6 @@ class PiholeCollector(Collector):
             {
                 "id": "block_on",
                 "label": "ON",
-                # Podświetl „ON” gdy blokowanie jest wyłączone — to wtedy
-                # główna akcja naprawcza na karcie.
                 "style": "accent" if not blocking_on else "default",
                 "group": "block",
             },
@@ -137,7 +135,6 @@ class PiholeCollector(Collector):
         if timer is not None:
             body["timer"] = timer
 
-        # Pi-hole v6: POST /api/dns/blocking
         await self._request("POST", "/api/dns/blocking", json=body)
 
         if enabled:

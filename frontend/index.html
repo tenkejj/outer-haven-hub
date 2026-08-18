@@ -4,17 +4,19 @@
   <meta charset="utf-8">
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=pages-max1">
+  <link rel="stylesheet" href="style.css?v=themes3">
+  <link rel="stylesheet" href="theme-wall.css?v=themes3">
+  <link rel="stylesheet" href="theme-deck.css?v=themes3">
 </head>
 <body>
-  <div class="shell">
+  <div class="shell" id="shell" data-theme="hud">
     <div id="boot-splash" class="boot-splash" aria-live="polite">
       <div class="boot-frame">
         <div class="boot-corner tl" aria-hidden="true"></div>
         <div class="boot-corner tr" aria-hidden="true"></div>
         <div class="boot-corner bl" aria-hidden="true"></div>
         <div class="boot-corner br" aria-hidden="true"></div>
-        <div class="boot-label" id="boot-label">CODEC CONNECTING…</div>
+        <div class="boot-label" id="boot-label">CONNECTING…</div>
         <div class="boot-bars" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span>
           <span></span><span></span><span></span>
@@ -22,96 +24,84 @@
       </div>
     </div>
 
-    <div class="corner tl" aria-hidden="true"></div>
-    <div class="corner tr" aria-hidden="true"></div>
-    <div class="corner bl" aria-hidden="true"></div>
-    <div class="corner br" aria-hidden="true"></div>
-
-    <header class="topbar">
-      <div class="brand-lockup">
-        <img class="emblem" src="assets/oh-emblem.png" width="340" height="280" alt="Outer Haven">
-        <div class="brand-block">
-          <div class="brand">OUTER HAVEN</div>
-          <div class="brand-sub">MOTHER_BASE</div>
-        </div>
-      </div>
-      <div class="spacer"></div>
-      <div id="toast" class="toast" hidden></div>
-      <div class="clock">
-        <div class="clock-time" id="clock-time">--:--:--</div>
-        <div class="clock-date" id="clock-date"></div>
-      </div>
-      <div class="badge" id="overall">···</div>
-    </header>
-
-    <div class="rule" aria-hidden="true"></div>
-
-    <!-- Max tabs: overview + focused monitors (hash #hub … #media) -->
-    <nav class="page-nav page-nav--dense" id="page-nav" role="tablist" aria-label="Pages">
-      <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">HUB</button>
-      <button type="button" class="page-tab" role="tab" data-page="dns" aria-selected="false">DNS</button>
-      <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">NET</button>
-      <button type="button" class="page-tab" role="tab" data-page="disk" aria-selected="false">DISK</button>
-      <button type="button" class="page-tab" role="tab" data-page="sys" aria-selected="false">SYS</button>
-      <button type="button" class="page-tab" role="tab" data-page="svc" aria-selected="false">SVC</button>
-      <button type="button" class="page-tab" role="tab" data-page="media" aria-selected="false">MEDIA</button>
+    <nav class="side-nav" id="side-nav" role="tablist" aria-label="Pages">
+      <button type="button" class="side-tab is-active" role="tab" data-page="hub" aria-selected="true">
+        <span class="side-tab-icon" aria-hidden="true">◆</span>
+        <span>Home</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" data-page="net" aria-selected="false">
+        <span class="side-tab-icon" aria-hidden="true">◎</span>
+        <span>Net</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" data-page="host" aria-selected="false">
+        <span class="side-tab-icon" aria-hidden="true">▣</span>
+        <span>Host</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" data-page="apps" aria-selected="false">
+        <span class="side-tab-icon" aria-hidden="true">▤</span>
+        <span>Apps</span>
+      </button>
     </nav>
 
-    <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
-      <div id="dashboard-grid"></div>
-    </main>
-    <main id="view-dns" class="view" data-page="dns" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">DNS · PI-HOLE</span>
-        <span class="view-meta" id="dns-meta">—</span>
-      </div>
-      <div id="dns-grid" class="focus-grid"></div>
-    </main>
-    <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">NETWORK</span>
-        <span class="view-meta" id="net-meta">VPN · LAN</span>
-      </div>
-      <div id="net-grid" class="focus-grid focus-grid--split"></div>
-    </main>
-    <main id="view-disk" class="view" data-page="disk" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">STORAGE</span>
-        <span class="view-meta" id="disk-meta">SSD · SMART</span>
-      </div>
-      <div id="disk-grid" class="focus-grid"></div>
-    </main>
-    <main id="view-sys" class="view" data-page="sys" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">SYSTEM</span>
-        <span class="view-meta" id="sys-meta">CPU · THROTTLE · LOAD</span>
-      </div>
-      <div id="sys-grid" class="focus-grid"></div>
-    </main>
-    <main id="view-svc" class="view" data-page="svc" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">SERVICES</span>
-        <span class="view-meta" id="svc-meta">—</span>
-      </div>
-      <div id="svc-grid" class="svc-grid"></div>
-    </main>
-    <main id="view-media" class="view" data-page="media" hidden aria-live="polite">
-      <div class="view-head">
-        <span class="view-title">MEDIA</span>
-        <span class="view-meta" id="media-meta">JELLYFIN · SMB</span>
-      </div>
-      <div id="media-grid" class="media-grid"></div>
-    </main>
+    <div class="shell-main">
+      <div class="corner tl" aria-hidden="true"></div>
+      <div class="corner tr" aria-hidden="true"></div>
+      <div class="corner bl" aria-hidden="true"></div>
+      <div class="corner br" aria-hidden="true"></div>
 
-    <footer class="foot">
-      <span id="foot-uptime">UP —</span>
-      <span class="foot-sep">·</span>
-      <span id="foot-mode">LIVE</span>
-      <span class="foot-sep">·</span>
-      <span id="foot-page">HUB</span>
-    </footer>
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img class="emblem" src="assets/oh-emblem.png" width="340" height="280" alt="Outer Haven">
+          <div class="brand-block">
+            <div class="brand">OUTER HAVEN</div>
+            <div class="brand-sub">MOTHER_BASE</div>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div id="toast" class="toast" hidden></div>
+        <button type="button" class="theme-switch" id="theme-switch" title="Cycle HUD → Wall → Deck">HUD</button>
+        <div class="clock">
+          <div class="clock-time" id="clock-time">--:--:--</div>
+          <div class="clock-date" id="clock-date"></div>
+        </div>
+        <div class="badge" id="overall">···</div>
+      </header>
+
+      <div class="rule" aria-hidden="true"></div>
+
+      <nav class="page-nav page-nav--top" id="page-nav" role="tablist" aria-label="Pages">
+        <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">Home</button>
+        <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">Net</button>
+        <button type="button" class="page-tab" role="tab" data-page="host" aria-selected="false">Host</button>
+        <button type="button" class="page-tab" role="tab" data-page="apps" aria-selected="false">Apps</button>
+      </nav>
+
+      <main id="view-hub" class="view is-active" data-page="hub" aria-live="polite">
+        <div id="dashboard-grid"></div>
+      </main>
+
+      <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
+        <div id="net-grid" class="page-grid page-grid--net"></div>
+      </main>
+
+      <main id="view-host" class="view" data-page="host" hidden aria-live="polite">
+        <div id="host-grid" class="page-grid page-grid--host"></div>
+      </main>
+
+      <main id="view-apps" class="view" data-page="apps" hidden aria-live="polite">
+        <div id="apps-grid" class="page-grid page-grid--apps"></div>
+      </main>
+
+      <footer class="foot">
+        <span id="foot-uptime">UP —</span>
+        <span class="foot-sep">·</span>
+        <span id="foot-mode">LIVE</span>
+        <span class="foot-sep">·</span>
+        <span id="foot-page">Home</span>
+      </footer>
+    </div>
   </div>
 
-  <script src="app.js?v=pages-max1"></script>
+  <script src="app.js?v=themes3"></script>
 </body>
 </html>

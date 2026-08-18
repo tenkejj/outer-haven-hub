@@ -149,7 +149,7 @@ class DemoWireguard(Collector):
 
 class DemoSystem(Collector):
     id = "system"
-    label = "SYSTEM PI"
+    label = "System"
     icon = "cpu"
     refresh_interval = 5
 
@@ -196,7 +196,7 @@ class DemoSystem(Collector):
 
 class DemoSmart(Collector):
     id = "smart"
-    label = "SSD"
+    label = "Disk"
     icon = "hard-drive"
     refresh_interval = 5
 
@@ -229,31 +229,34 @@ class DemoSmart(Collector):
 
 
 class DemoServices(Collector):
-    """Sztuczne statusy systemd — HUB_DEMO, strony SVC / MEDIA."""
+    """Fake systemd statuses — HUB_DEMO, Svc / Media / MC pages."""
 
     id = "services"
-    label = "SERVICES"
+    label = "Services"
     icon = "box"
     refresh_interval = 5
 
     # Stała lista jak w config.yaml — UI da się stylować bez Pi.
     _UNITS = [
-        {"id": "jellyfin", "label": "JELLYFIN", "media": True,
+        {"id": "jellyfin", "label": "Jellyfin", "media": True,
          "note": "http://mother-base:8096"},
-        {"id": "samba", "label": "SMB", "media": True, "note": "smb://mother-base"},
+        {"id": "samba", "label": "Files", "media": True,
+         "note": "smb://mother-base"},
+        {"id": "minecraft", "label": "Minecraft", "game": True,
+         "note": "mother-base:25565", "critical": False},
         {"id": "nmbd", "label": "NMBD"},
-        {"id": "winbind", "label": "WINBIND"},
-        {"id": "wsdd2", "label": "WSDD2"},
-        {"id": "caddy", "label": "CADDY"},
-        {"id": "pihole", "label": "PIHOLE"},
-        {"id": "unbound", "label": "UNBOUND"},
-        {"id": "hub", "label": "HUB"},
+        {"id": "winbind", "label": "Winbind", "critical": False},
+        {"id": "wsdd2", "label": "WSDD"},
+        {"id": "caddy", "label": "Caddy"},
+        {"id": "pihole", "label": "Pi-hole"},
+        {"id": "unbound", "label": "Unbound"},
+        {"id": "hub", "label": "Hub"},
         {"id": "ssh", "label": "SSH"},
-        {"id": "nm", "label": "NETMGR"},
-        {"id": "avahi", "label": "AVAHI"},
-        {"id": "bluetooth", "label": "BT"},
-        {"id": "cron", "label": "CRON"},
-        {"id": "smart", "label": "SMARTD"},
+        {"id": "nm", "label": "Net"},
+        {"id": "avahi", "label": "Avahi", "critical": False},
+        {"id": "bluetooth", "label": "BT", "critical": False},
+        {"id": "cron", "label": "Cron", "critical": False},
+        {"id": "smart", "label": "SMART", "critical": False},
     ]
 
     def __init__(self, settings: dict | None = None) -> None:
@@ -265,7 +268,7 @@ class DemoServices(Collector):
     async def collect(self) -> dict:
         self._tick += 1
         if self._tick % 8 == 0:
-            self._down_id = random.choice(["nmbd", "wsdd2", None, None])
+            self._down_id = random.choice(["nmbd", "wsdd2", "minecraft", None, None])
         metrics: list[dict] = []
         unit_states: list[dict] = []
         for u in self._UNITS:
@@ -275,16 +278,17 @@ class DemoServices(Collector):
                 "id": u["id"],
                 "state": "active" if active else "inactive",
                 "metric_state": state,
-                "critical": True,
+                "critical": u.get("critical", True),
             })
             metrics.append({
                 "id": u["id"],
                 "label": u["label"],
-                "value": "ACTIVE" if active else "DOWN",
+                "value": "ON" if active else "OFF",
                 "type": "status",
                 "state": state,
                 "note": u.get("note") or "",
                 "media": bool(u.get("media")),
+                "game": bool(u.get("game")),
             })
         up = sum(1 for s in unit_states if s["state"] == "active")
         down = len(unit_states) - up
