@@ -35,6 +35,9 @@ const netGrid = document.getElementById("net-grid");
 const hostGrid = document.getElementById("host-grid");
 const appsGrid = document.getElementById("apps-grid");
 const pageNav = document.getElementById("page-nav");
+const sideNav = document.getElementById("side-nav");
+const shellEl = document.getElementById("shell");
+const themeSwitch = document.getElementById("theme-switch");
 const footPageEl = document.getElementById("foot-page");
 const overallEl = document.getElementById("overall");
 const clockTimeEl = document.getElementById("clock-time");
@@ -48,6 +51,173 @@ let actionBusy = false;
 /** Ostatni payload dashboardu — przełączanie stron bez czekania na poll. */
 let lastDashboard = null;
 let currentPage = "hub";
+
+/* ---------- themes: HUD (default) | Wall (sidebar) | Deck (bottom dock) ---------- */
+
+const THEMES = ["hud", "wall", "deck"];
+const THEME_LABEL = { hud: "HUD", wall: "WALL", deck: "DECK" };
+let currentTheme = "hud";
+
+function themeFromUrl() {
+  const param = new URLSearchParams(location.search).get("theme");
+  const t = String(param || "").toLowerCase();
+  if (THEMES.includes(t)) return t;
+  try {
+    const saved = localStorage.getItem("oh-theme");
+    if (THEMES.includes(saved)) return saved;
+  } catch (_) { /* ignore */ }
+  return "hud";
+}
+
+function setTheme(theme, options = {}) {
+  const next = THEMES.includes(theme) ? theme : "hud";
+  currentTheme = next;
+  if (shellEl) shellEl.dataset.theme = next;
+  if (themeSwitch) themeSwitch.textContent = THEME_LABEL[next] || "HUD";
+  try { localStorage.setItem("oh-theme", next); } catch (_) { /* ignore */ }
+  if (options.updateUrl !== false) {
+    const url = new URL(location.href);
+    if (next === "hud") url.searchParams.delete("theme");
+    else url.searchParams.set("theme", next);
+    history.replaceState(null, "", `${url.pathname}${url.search}${location.hash}`);
+  }
+  if (lastDashboard) paintPage(lastDashboard);
+}
+
+function cycleTheme() {
+  const i = THEMES.indexOf(currentTheme);
+  setTheme(THEMES[(i + 1) % THEMES.length]);
+}
+
+function formatPercentValue(raw) {
+  const n = parseFloat(String(raw));
+  if (!Number.isFinite(n)) return esc(String(raw ?? "—"));
+  return `${esc(String(Math.round(n * 10) / 10))}<span class="wall-stat-unit">%</span>`;
+}
+
+/** Wall Home — four status tiles, no charts (charts live on Net/Host). */
+function renderWallHome(data) {
+  const pihole = findCollector(data, "pihole");
+  const vpn = findCollector(data, "wireguard");
+  const sys = findCollector(data, "system");
+  const svc = servicesCollector(data);
+
+  const pctBlock = metricValue(pihole, "% BLOCK");
+  const block = metricValue(pihole, "BLOCK");
+  const peers = metricValue(vpn, "PEERS");
+  const cpu = metricValue(sys, "CPU");
+  const temp = metricValue(sys, "TEMP");
+  const summary = svc ? serviceSummary(svc) : { up: "—", down: "—" };
+
+  const mc = serviceStatusMetrics(svc || {}).find(
+    (m) => String(m.id || "").toLowerCase() === "minecraft",
+  );
+  const mcVal = mc ? mc.value : "—";
+
+  return `<div class="wall-home">
+    <div class="wall-status-row">
+      <div class="wall-stat" data-status="${esc(pihole?.status || "error")}" data-jump="net" role="button" tabindex="0">
+        <div class="wall-stat-label">DNS</div>
+        <div class="wall-stat-value">${formatPercentValue(pctBlock)}</div>
+        <div class="wall-stat-sub">${esc(block)} blocked</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(vpn?.status || "error")}" data-jump="net" role="button" tabindex="0">
+        <div class="wall-stat-label">VPN</div>
+        <div class="wall-stat-value">${esc(String(peers))}</div>
+        <div class="wall-stat-sub">peers online</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(sys?.status || "error")}" data-jump="host" role="button" tabindex="0">
+        <div class="wall-stat-label">Host</div>
+        <div class="wall-stat-value">${esc(String(cpu))}</div>
+        <div class="wall-stat-sub">${esc(String(temp))} · CPU</div>
+      </div>
+      <div class="wall-stat" data-status="${esc(svc?.status || "error")}" data-jump="apps" role="button" tabindex="0">
+        <div class="wall-stat-label">Apps</div>
+        <div class="wall-stat-value">${esc(String(summary.up))}<span class="wall-stat-unit">/${esc(String(Number(summary.up) + Number(summary.down) || "—"))}</span></div>
+        <div class="wall-stat-sub">MC ${esc(mcVal)}</div>
+      </div>
+    </div>
+    <div class="wall-hint">Sidebar → Net / Host / Apps for charts · tap tile to jump</div>
+  </div>`;
+}
+
+/** Deck Home — 2×2 launch tiles (bottom dock for navigation). */
+function renderDeckHome(data) {
+  const pihole = findCollector(data, "pihole");
+  const sys = findCollector(data, "system");
+  const disk = findCollector(data, "smart");
+  const svc = servicesCollector(data);
+  const mc = serviceStatusMetrics(svc || {}).find(
+    (m) => String(m.id || "").toLowerCase() === "minecraft",
+  );
+
+  const tiles = [
+    {
+      page: "net",
+      label: "Network",
+      value: metricValue(pihole, "% BLOCK"),
+      sub: metricValue(pihole, "BLOCK"),
+      hint: "Pi-hole + VPN",
+      status: pihole?.status || "error",
+      isPercent: true,
+    },
+    {
+      page: "host",
+      label: "System",
+      value: metricValue(sys, "CPU"),
+      sub: metricValue(sys, "TEMP"),
+      hint: "CPU · RAM · charts",
+      status: sys?.status || "error",
+    },
+    {
+      page: "host",
+      label: "Storage",
+      value: metricValue(disk, "FREE"),
+      sub: metricValue(disk, "HEALTH"),
+      hint: "SMART disk",
+      status: disk?.status || "error",
+    },
+    {
+      page: "apps",
+      label: "Minecraft",
+      value: mc ? mc.value : "—",
+      sub: mc?.note || "mother-base:25565",
+      hint: "Tap for all apps",
+      status: mc?.state || "error",
+    },
+  ];
+
+  return `<div class="deck-home">
+    <div class="deck-launch">
+      ${tiles.map((t) => {
+        const val = t.isPercent ? formatPercentValue(t.value) : esc(String(t.value));
+        return `<button type="button" class="deck-tile" data-page="${esc(t.page)}" data-status="${esc(t.status)}">
+          <div class="deck-tile-label">${esc(t.label)}</div>
+          <div class="deck-tile-value">${val}</div>
+          <div class="deck-tile-sub">${esc(String(t.sub))}</div>
+          <div class="deck-tile-hint">${esc(t.hint)} →</div>
+        </button>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function syncNavActive(page) {
+  if (pageNav) {
+    pageNav.querySelectorAll(".page-tab").forEach((btn) => {
+      const on = btn.dataset.page === page;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  if (sideNav) {
+    sideNav.querySelectorAll(".side-tab").forEach((btn) => {
+      const on = btn.dataset.page === page;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+}
 
 /* ---------- kiosk viewport scale ----------
    Layout żyje w stałym canvasie 1024×600 (gęsty HUD). Skalujemy non-uniform
@@ -728,13 +898,7 @@ function setPage(page, options = {}) {
     el.hidden = !on;
   });
 
-  if (pageNav) {
-    pageNav.querySelectorAll(".page-tab").forEach((btn) => {
-      const on = btn.dataset.page === next;
-      btn.classList.toggle("is-active", on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-  }
+  syncNavActive(next);
 
   if (footPageEl) footPageEl.textContent = PAGE_TITLE[next] || next;
 
@@ -753,14 +917,20 @@ function setPage(page, options = {}) {
 function paintPage(data) {
   const svc = servicesCollector(data);
   if (currentPage === "hub") {
-    // Home = overview only (classic cards). Deep charts live on Net / Host.
-    const collectors = (data.collectors || [])
-      .filter((c) => c.id !== "services")
-      .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
-    if (!collectors.length) {
-      grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+    if (currentTheme === "wall") {
+      grid.innerHTML = renderWallHome(data);
+    } else if (currentTheme === "deck") {
+      grid.innerHTML = renderDeckHome(data);
     } else {
-      grid.innerHTML = collectors.map((c, i) => renderCard(c, i)).join("");
+      // Home = overview only (classic cards). Deep charts live on Net / Host.
+      const collectors = (data.collectors || [])
+        .filter((c) => c.id !== "services")
+        .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
+      if (!collectors.length) {
+        grid.innerHTML = `<div class="empty-state">no active modules</div>`;
+      } else {
+        grid.innerHTML = collectors.map((c, i) => renderCard(c, i)).join("");
+      }
     }
   } else if (currentPage === "net") {
     renderNetView(data);
@@ -778,6 +948,32 @@ if (pageNav) {
     setPage(btn.dataset.page);
   });
 }
+
+if (sideNav) {
+  sideNav.addEventListener("click", (event) => {
+    const btn = event.target.closest(".side-tab");
+    if (!btn || !sideNav.contains(btn)) return;
+    setPage(btn.dataset.page);
+  });
+}
+
+if (themeSwitch) {
+  themeSwitch.addEventListener("click", () => cycleTheme());
+}
+
+/** Wall/Deck home tiles jump to a page without leaving theme. */
+grid.addEventListener("click", (event) => {
+  const jump = event.target.closest("[data-jump]");
+  if (jump && grid.contains(jump)) {
+    setPage(jump.dataset.jump);
+    return;
+  }
+  const deck = event.target.closest(".deck-tile[data-page]");
+  if (deck && grid.contains(deck)) {
+    setPage(deck.dataset.page);
+    return;
+  }
+});
 
 window.addEventListener("hashchange", () => {
   setPage(pageFromHash(), { updateHash: false });
@@ -877,7 +1073,7 @@ grid.addEventListener("click", (event) => {
   runAction(button.dataset.collector, button.dataset.action, button);
 });
 
-/* Akcje też na stronach fokusowych (DNS ma przyciski Pi-hole). */
+/* Akcje też na stronach fokusowych (Net ma przyciski Pi-hole). */
 document.querySelector(".shell")?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button || grid?.contains(button)) return;
@@ -887,7 +1083,8 @@ document.querySelector(".shell")?.addEventListener("click", (event) => {
 tickClock();
 setInterval(tickClock, 1000);
 
-/* Start na hashu (np. kiosk z zakładką #mc) */
+/* Theme from ?theme=wall|deck or localStorage; then hash page */
+setTheme(themeFromUrl(), { updateUrl: false });
 setPage(pageFromHash(), { updateHash: true });
 
 /* Boot splash → fade out */

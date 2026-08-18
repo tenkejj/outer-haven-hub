@@ -98,6 +98,15 @@ body {
   transform-origin: 0 0;
 }
 
+/* Main column (header + views + footer); side-nav is sibling in Wall theme. */
+.shell-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
 .corner {
   position: absolute;
   width: 16px;
@@ -1423,6 +1432,18 @@ body {
   flex-direction: column;
   padding-top: 5px;
   border-top: 1px solid var(--line);
+}
+
+.card:not(.card--hero):not(.card--chart-focus) .chart-legend {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+  flex: 0 0 13px;
+  height: 13px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  overflow: hidden;
 }
 
 .card:not(.card--hero):not(.card--chart-focus) .chart {
