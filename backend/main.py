@@ -30,7 +30,7 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response, StreamingResponse
 from starlette.types import Scope
@@ -47,6 +47,15 @@ COLLECT_TIMEOUT_S = 10.0
 # Co ile sekund strumień SSE wypycha nowy stan. Nie jest to częstotliwość
 # odpytywania źródeł — te mają własny refresh_interval w cache.
 STREAM_INTERVAL_S = 2.0
+
+# Maksymalny czas życia JEDNEGO połączenia SSE. Po nim generator kończy się,
+# a przeglądarka (EventSource) sama wznawia połączenie.
+#
+# Po co limit: uvicorn przy wyłączaniu czeka na zamknięcie połączeń, więc
+# nieskończony strumień potrafi zawiesić `systemctl restart` do timeoutu.
+# Ograniczony strumień domyka to sam, a dodatkowo chroni przed
+# półotwartymi połączeniami trzymanymi przez reverse proxy.
+STREAM_MAX_S = 45.0
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("hub")
@@ -247,7 +256,7 @@ async def history(collector_id: str) -> dict:
 
 
 @app.get("/api/stream")
-async def stream() -> StreamingResponse:
+async def stream(request: Request) -> StreamingResponse:
     """Server-Sent Events ze stanem — panel nie musi pollować.
 
     Po co: przy pollingu frontend przebudowywał cały DOM co 5 s, więc nie
@@ -258,10 +267,19 @@ async def stream() -> StreamingResponse:
     zależności (akcje nadal idą przez POST). Za Caddy trzeba pamiętać, że
     reverse_proxy potrafi buforować odpowiedzi; panel ma watchdog i przy
     ciszy dłuższej niż kilka sekund sam wraca do pollowania /api/state.
+
+    Strumień jest ŚWIADOMIE skończony (STREAM_MAX_S) i sprawdza rozłączenie
+    klienta — inaczej odświeżony kiosk zostawiałby wiszące generatory,
+    a wyłączanie uvicorna czekałoby na nie do timeoutu.
     """
 
     async def events() -> AsyncIterator[bytes]:
-        while True:
+        # `retry` mówi przeglądarce, jak szybko wznowić po końcu strumienia.
+        yield b"retry: 1000\n\n"
+        deadline = time.monotonic() + STREAM_MAX_S
+        while time.monotonic() < deadline:
+            if await request.is_disconnected():
+                return
             payload = await _state_payload()
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
             await asyncio.sleep(STREAM_INTERVAL_S)

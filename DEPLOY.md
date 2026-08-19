@@ -62,3 +62,21 @@ so it is sharpest when X runs at that resolution. Check with `xrandr`; if the
 display reports something else, the panel still fits (letterboxed) but the
 design canvas in `frontend/panel/panel.js` (`DESIGN_W` / `DESIGN_H`) is the
 place to change if you want it native.
+
+### SSE and restarts
+
+The panel subscribes to `GET /api/stream`. Uvicorn waits for open connections
+during shutdown, so an unbounded stream would stall `systemctl restart`. Two
+guards handle this and both are already in the repo:
+
+- `STREAM_MAX_S` in `backend/main.py` ends each stream after ~45 s (the
+  browser reconnects on its own).
+- `--timeout-graceful-shutdown 3` in `deploy/outer-haven-hub.service`.
+
+If you copied the unit file before this change, re-copy it:
+
+```bash
+sudo cp deploy/outer-haven-hub.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart outer-haven-hub
+```

@@ -425,7 +425,9 @@ function paintStage() {
     node.dataset.state = m?.state || "error";
   }
 
-  if (!useChips) loadHistory(card.id);
+  // Historię ciągniemy tylko dla stron, które faktycznie mają wykres —
+  // karta z błędem albo siatka lampek nie ma czego rysować.
+  if (!useChips && card.has_chart) loadHistory(card.id);
 }
 
 /* ---------- dock ---------- */
@@ -530,7 +532,7 @@ function setPage(id, options = {}) {
   if (changed) {
     stageShape = "";
     el.dock.dataset.key = "";
-    loadHistory(next, true);
+    if (cardById(next)?.has_chart) loadHistory(next, true);
   }
   if (options.hash !== false && location.hash !== `#${next}`) {
     history.replaceState(null, "", `#${next}`);
