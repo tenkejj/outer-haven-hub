@@ -50,6 +50,10 @@ class ServicesCollector(Collector):
     icon = "box"
     refresh_interval = 10
 
+    # Panel: liczba działających usług na scenie; same usługi renderują się
+    # jako siatka lampek (panel ma regułę: >=5 metryk typu status → siatka).
+    primary_metric = "UP"
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         raw = self.settings.get("units")
