@@ -308,6 +308,10 @@ body {
   pointer-events: none;
 }
 
+/* Gdy scena ma pasek liczb drugiego planu, wykres kończy się NAD nim —
+   nakładanie cyfr na przebieg czyniło jedno i drugie nieczytelnym. */
+.stage--foot .spark { bottom: 62px; }
+
 .spark svg { display: block; width: 100%; height: 100%; }
 
 /* preserveAspectRatio="none" rozciąga viewBox niejednorodnie, więc bez
@@ -329,6 +333,10 @@ body {
   opacity: 0.55;
   vector-effect: non-scaling-stroke;
 }
+
+/* Seria z rolą "warn" (np. temperatura obok CPU/RAM) własnym kolorem —
+   inaczej wszystkie serie poboczne były tym samym szarym. */
+.spark-line-warn { stroke: var(--warn); opacity: 0.6; }
 
 .spark-base {
   stroke: var(--line);
@@ -393,8 +401,12 @@ body {
   letter-spacing: 0;
 }
 
-.stage[data-status="warning"] .big { color: var(--warn); }
-.stage[data-status="error"] .big { color: var(--error); }
+/* Kolor bierzemy ze stanu SAMEJ metryki, nie z statusu karty. Inaczej
+   „15 UP" na stronie usług świeciło czerwienią tylko dlatego, że jedna
+   z szesnastu usług leży — a 15 działających to dobra wiadomość.
+   Metryki bez własnego stanu dziedziczą status karty (patrz panel.js). */
+.big[data-state="warning"] { color: var(--warn); }
+.big[data-state="error"] { color: var(--error); }
 
 .big-cap {
   padding-bottom: 14px;
@@ -440,11 +452,12 @@ body {
   color: var(--text-hi);
 }
 
-/* Liczby drugiego planu leżą NA wykresie (z-index 1), przy dolnej krawędzi —
-   klasyczny zabieg z klastra zegarów: dane na tle własnego przebiegu. */
+/* Pasek liczb drugiego planu — przyklejony do dołu scenu (margin-top: auto),
+   pod wykresem, nie na nim. */
 .stage-foot {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 44px;
+  height: 44px;
+  margin-top: auto;
   display: flex;
   align-items: flex-end;
   gap: 30px;
@@ -546,16 +559,21 @@ body {
 
 .dock[hidden] { display: none; }
 
+/* Bez akcji: odczyty tworzą zwartą grupę wyśrodkowaną w pionie. Wcześniej
+   pojedynczy odczyt rozdymał się na całą wysokość doku i czytało się to
+   jak pustka — stąd max-height i justify-content. */
 .dock-list {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .detail {
   flex: 1 1 0;
   min-height: 0;
+  max-height: 108px;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
@@ -564,6 +582,22 @@ body {
   border-bottom: 1px solid var(--line);
   overflow: hidden;
 }
+
+.detail:last-child { border-bottom: 0; }
+
+/* Z akcjami: odczyty u góry na stałej wysokości, a przyciski zabierają
+   resztę doku — im większy przycisk, tym lepiej dla palca na 7". */
+.dock--acts .dock-list { flex: 0 0 auto; }
+
+.dock--acts .detail {
+  flex: 0 0 auto;
+  min-height: 82px;
+  max-height: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.dock--acts .acts { flex: 1 1 auto; }
+.dock--acts .act { flex: 1 1 0; height: auto; min-height: 54px; }
 
 .detail-cap {
   font-size: 9px;

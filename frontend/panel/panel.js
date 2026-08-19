@@ -196,7 +196,10 @@ function sparkSvg(chart) {
 
   const area = `${path(main.points)} L ${W} ${H} L 0 ${H} Z`;
   const extra = other
-    .map((s) => `<path class="spark-line-2" d="${path(s.points)}" />`)
+    .map((s) => {
+      const cls = s.role === "warn" ? "spark-line-2 spark-line-warn" : "spark-line-2";
+      return `<path class="${cls}" d="${path(s.points)}" />`;
+    })
     .join("");
 
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
@@ -361,7 +364,7 @@ function buildStage(card) {
           <span class="aside-cap">${esc(m.label)}</span>
           <span class="aside-val" data-k="asideval">—</span>
         </div>`).join("")}</div>`
-    : (useChips ? "" : `<div class="stage-foot"></div>`);
+    : "";
 
   const errorHtml = card.error
     ? `<div class="stage-error">${esc(card.error)}</div>`
@@ -378,21 +381,25 @@ function paintStage() {
   }
 
   const shape = shapeKey(card);
+  const { primary, statuses, useChips, asides } = partition(card);
+
   if (shape !== stageShape) {
     stageShape = shape;
     el.stage.innerHTML = buildStage(card);
+    // Pasek liczb u dołu skraca wykres — patrz .stage--foot .spark w CSS.
+    el.stage.classList.toggle("stage--foot", asides.length > 0);
     paintSpark();
   }
 
   el.stage.dataset.status = card.status || "error";
-
-  const { primary, statuses, useChips } = partition(card);
 
   const tag = el.stage.querySelector('[data-k="tag"]');
   if (tag) tag.textContent = STATE_WORD[card.status] || "—";
 
   const big = el.stage.querySelector('[data-k="big"]');
   if (big && primary) {
+    // Stan SAMEJ metryki ma pierwszeństwo nad statusem karty — patrz CSS.
+    big.dataset.state = primary.state || card.status || "";
     if (primary.num === null) {
       // Wartość nieliczbowa (np. "ON") — mniejszy stopień, żeby się zmieściła.
       big.classList.add("big--text");
@@ -466,6 +473,8 @@ function paintDock() {
   el.dock.hidden = empty;
   el.dockHair.hidden = empty;
   if (empty) return;
+  // Z akcjami przyciski wypełniają resztę doku — patrz .dock--acts w CSS.
+  el.dock.classList.toggle("dock--acts", actions.length > 0);
 
   const mode = blockMode(card);
   const key = [
