@@ -178,10 +178,11 @@ function sparkSvg(chart) {
   const all = series.flatMap((s) => s.points);
   const lo = Math.min(...all);
   const hi = Math.max(...all);
-  // Margines skali, żeby płaska seria (temp 28–31) też miała amplitudę.
+  // Margines skali, żeby płaska seria (temp 28–31) też miała amplitudę —
+  // ale mały, bo za duży spłaszczał przebieg do cienkiego paska.
   const span = Math.max(hi - lo, Math.abs(hi) * 0.08, 1);
-  const yLo = lo - span * 0.15;
-  const yHi = hi + span * 0.2;
+  const yLo = lo - span * 0.08;
+  const yHi = hi + span * 0.12;
 
   const x = (i, len) => (i / Math.max(len - 1, 1)) * W;
   const y = (v) => H - ((v - yLo) / (yHi - yLo)) * H;
@@ -331,12 +332,6 @@ function buildStage(card) {
       <span class="stage-tag" data-k="tag"></span>
     </div>`;
 
-  const main = `
-    <div class="stage-main">
-      <span class="big" data-k="big">—</span>
-      <span class="big-cap" data-k="bigcap">${esc(primary ? primary.label : "")}</span>
-    </div>`;
-
   const plateHtml = plate
     ? `<div class="plate" data-k="plate">
          <span class="plate-led" aria-hidden="true"></span>
@@ -344,6 +339,13 @@ function buildStage(card) {
          <span class="plate-val" data-k="plateval">—</span>
        </div>`
     : "";
+
+  const main = `
+    <div class="stage-main">
+      <span class="big" data-k="big">—</span>
+      <span class="big-cap" data-k="bigcap">${esc(primary ? primary.label : "")}</span>
+      ${plateHtml}
+    </div>`;
 
   const chipsHtml = useChips
     ? `<div class="chips">${chips.map((m) => `
@@ -365,7 +367,7 @@ function buildStage(card) {
     ? `<div class="stage-error">${esc(card.error)}</div>`
     : "";
 
-  return spark + head + main + plateHtml + chipsHtml + foot + errorHtml;
+  return spark + head + main + chipsHtml + foot + errorHtml;
 }
 
 function paintStage() {

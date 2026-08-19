@@ -294,23 +294,47 @@ body {
 .stage[data-status="warning"] { border-left-color: var(--warn); }
 .stage[data-status="error"] { border-left-color: var(--error); }
 
-/* Sparkline żyje w tle, pod liczbą — nie jest osobnym „widgetem w ramce",
-   więc nie ma czego ścisnąć, gdy treści jest więcej. */
+/* Sparkline żyje w TLE, pod liczbą — nie jest osobnym „widgetem w ramce",
+   więc nie ma czego ścisnąć, gdy treści jest więcej.
+
+   Rozciąga się od dołu nagłówka do dołu scenu (a nie na stałą wysokość):
+   inaczej między liczbą a wykresem zostawał pas martwej przestrzeni. */
 .spark {
   position: absolute;
   left: 0;
   right: 0;
+  top: 158px;
   bottom: 0;
-  height: 218px;
   pointer-events: none;
 }
 
 .spark svg { display: block; width: 100%; height: 100%; }
 
-.spark-area { fill: var(--accent); opacity: 0.1; }
-.spark-line { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0.75; }
-.spark-line-2 { fill: none; stroke: var(--text-dim); stroke-width: 1.5; opacity: 0.5; }
-.spark-base { stroke: var(--line); stroke-width: 1; }
+/* preserveAspectRatio="none" rozciąga viewBox niejednorodnie, więc bez
+   non-scaling-stroke linia byłaby grubsza w pionie niż w poziomie. */
+.spark-area { fill: var(--accent); opacity: 0.16; }
+
+.spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  opacity: 0.85;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-line-2 {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-base {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
 
 .stage-head,
 .stage-main,
@@ -338,12 +362,14 @@ body {
   color: var(--text-dim);
 }
 
+/* Liczba, jej podpis i płytka stanu w JEDNYM rzędzie — płytka pod spodem
+   spychała wykres w dół i tworzyła poziomą pustkę obok liczby. */
 .stage-main {
   flex: 0 0 auto;
-  margin-top: 4px;
+  margin-top: 2px;
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 16px;
 }
 
 .big {
@@ -379,17 +405,16 @@ body {
   text-transform: uppercase;
 }
 
-/* Płytka stanu — LED + jedno słowo (BLOCKING / PAUSED / OK) */
+/* Płytka stanu — LED + jedno słowo (ON / OFF 4M / OK) */
 .plate {
   flex: 0 0 auto;
-  margin-top: 12px;
+  margin-bottom: 16px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
+  padding: 9px 14px;
   border: 1px solid var(--line-hi);
   background: var(--panel);
-  align-self: flex-start;
 }
 
 .plate-led {
@@ -415,12 +440,14 @@ body {
   color: var(--text-hi);
 }
 
+/* Liczby drugiego planu leżą NA wykresie (z-index 1), przy dolnej krawędzi —
+   klasyczny zabieg z klastra zegarów: dane na tle własnego przebiegu. */
 .stage-foot {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   align-items: flex-end;
-  gap: 26px;
+  gap: 30px;
 }
 
 .aside-num {
