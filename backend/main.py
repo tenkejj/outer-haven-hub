@@ -20,17 +20,19 @@ Uruchomienie deweloperskie (z katalogu backend/):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import platform
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 from starlette.types import Scope
 
 from collectors.base import Collector, STATUS_ERROR, STATUS_OK
@@ -41,6 +43,10 @@ REPO_ROOT = BACKEND_DIR.parent
 # Twardy limit czasu na pojedynczy collect() — jedno wiszące źródło (np.
 # nieodpowiadające API) nie może przytrzymać całej odpowiedzi /api/dashboard.
 COLLECT_TIMEOUT_S = 10.0
+
+# Co ile sekund strumień SSE wypycha nowy stan. Nie jest to częstotliwość
+# odpytywania źródeł — te mają własny refresh_interval w cache.
+STREAM_INTERVAL_S = 2.0
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("hub")
@@ -169,8 +175,8 @@ def _uptime_human() -> str:
     return f"{minutes}m"
 
 
-@app.get("/api/dashboard")
-async def dashboard() -> dict:
+async def _collect_all() -> tuple[list[dict], str]:
+    """Wszystkie karty RÓWNOLEGLE + zbiorczy (najgorszy) status."""
     # gather = wszystkie collectory RÓWNOLEGLE (sekcja 3.2 specyfikacji);
     # wolne źródło nie opóźnia szybkich, bo każdy get() i tak ma swój cache.
     cards = list(await asyncio.gather(*(runner.get() for runner in RUNNERS)))
@@ -179,6 +185,10 @@ async def dashboard() -> dict:
         key=lambda status: _SEVERITY.get(status, 2),
         default=STATUS_OK,
     )
+    return cards, overall
+
+
+def _envelope(cards: list[dict], overall: str) -> dict:
     return {
         "generated_at": int(time.time()),
         "host": os.environ.get("HUB_NAME") or platform.node(),
@@ -188,6 +198,84 @@ async def dashboard() -> dict:
         "status": overall,
         "collectors": cards,
     }
+
+
+@app.get("/api/dashboard")
+async def dashboard() -> dict:
+    """Pełny stan RAZEM z punktami wykresów — używa go stary frontend."""
+    cards, overall = await _collect_all()
+    return _envelope(cards, overall)
+
+
+def _without_history(card: dict) -> dict:
+    """Karta bez punktów wykresu.
+
+    Historia Pi-hole to 144 punkty × 2 serie — wożenie tego w każdym tiku
+    strumienia jest marnotrawstwem, bo wykres widać tylko na jednej stronie.
+    Panel dociąga go osobno przez /api/history/<id>, gdy go potrzebuje.
+    """
+    lean = dict(card)
+    chart = card.get("chart")
+    lean["chart"] = None
+    lean["has_chart"] = bool(chart and chart.get("series"))
+    return lean
+
+
+async def _state_payload() -> dict:
+    cards, overall = await _collect_all()
+    return _envelope([_without_history(card) for card in cards], overall)
+
+
+@app.get("/api/state")
+async def state() -> dict:
+    """Lekki stan (bez historii wykresów) — dla panelu instrumentowego."""
+    return await _state_payload()
+
+
+@app.get("/api/history/{collector_id}")
+async def history(collector_id: str) -> dict:
+    """Same punkty wykresu jednego źródła — dociągane, gdy panel je pokazuje.
+
+    Nie wymusza nowego collect(): czyta ten sam cache co /api/state, więc
+    wejście na stronę z wykresem nie generuje ruchu do Pi-hole ani sudo.
+    """
+    runner = RUNNERS_BY_ID.get(collector_id)
+    if runner is None:
+        raise HTTPException(status_code=404, detail=f"nieznany collector: {collector_id}")
+    card = await runner.get()
+    return {"id": collector_id, "chart": card.get("chart")}
+
+
+@app.get("/api/stream")
+async def stream() -> StreamingResponse:
+    """Server-Sent Events ze stanem — panel nie musi pollować.
+
+    Po co: przy pollingu frontend przebudowywał cały DOM co 5 s, więc nie
+    dało się animować pojedynczej wartości. Push pozwala aktualizować
+    konkretne pola w miejscu.
+
+    SSE, nie WebSocket — jednokierunkowy strumień w zwykłym HTTP, bez nowej
+    zależności (akcje nadal idą przez POST). Za Caddy trzeba pamiętać, że
+    reverse_proxy potrafi buforować odpowiedzi; panel ma watchdog i przy
+    ciszy dłuższej niż kilka sekund sam wraca do pollowania /api/state.
+    """
+
+    async def events() -> AsyncIterator[bytes]:
+        while True:
+            payload = await _state_payload()
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+            await asyncio.sleep(STREAM_INTERVAL_S)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            # Wyłącza buforowanie w typowych proxy (nginx honoruje to wprost).
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/api/collectors/{collector_id}/actions/{action_id}")

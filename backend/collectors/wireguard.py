@@ -53,6 +53,9 @@ class WireguardCollector(Collector):
     icon = "lock"
     refresh_interval = 10
 
+    # Panel: „ilu ludzi jest w tunelu" — to jest pytanie, na które odpowiada VPN.
+    primary_metric = "LIVE"
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         # Mapa: klucz publiczny peera -> przyjazna nazwa (z config.yaml).

@@ -24,6 +24,7 @@ class DemoPihole(Collector):
     label = "Pi-hole"
     icon = "shield"
     refresh_interval = 5
+    primary_metric = "% BLOCK"
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -116,6 +117,7 @@ class DemoWireguard(Collector):
     label = "VPN"
     icon = "lock"
     refresh_interval = 5
+    primary_metric = "LIVE"
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -152,6 +154,9 @@ class DemoSystem(Collector):
     label = "System"
     icon = "cpu"
     refresh_interval = 5
+    primary_metric = "CPU"
+    vital_metrics = {"CPU": "CPU", "RAM": "RAM", "TEMP": "TEMP"}
+    metric_ranges = {"TEMP": (30.0, 85.0)}
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -199,6 +204,8 @@ class DemoSmart(Collector):
     label = "Disk"
     icon = "hard-drive"
     refresh_interval = 5
+    primary_metric = "FREE"
+    vital_metrics = {"HEALTH": "SSD"}
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -235,6 +242,7 @@ class DemoServices(Collector):
     label = "Services"
     icon = "box"
     refresh_interval = 5
+    primary_metric = "UP"
 
     # Stała lista jak w config.yaml — UI da się stylować bez Pi.
     _UNITS = [
