@@ -74,11 +74,33 @@ let watchdog = 0;
 
 /* ---------- viewport: jedna, równomierna skala ---------- */
 
+/** Rozmiar OKNA, w którym panel musi się zmieścić.
+    Chromium w kiosku czasem dostaje --window-size większe niż fizyczny
+    monitor (u nas: .xinitrc wymuszał 1920×1080 na panelu 1024×768) —
+    wtedy innerWidth kłamie, a ekran pokazuje tylko wycinek (= „zoomed”).
+    Bierzemy minimum z viewportu i screen.*, żeby nigdy nie wyjść poza
+    fizyczną matrycę. */
+function viewportSize() {
+  const vw = window.visualViewport?.width || window.innerWidth;
+  const vh = window.visualViewport?.height || window.innerHeight;
+  const sw = screen.width || vw;
+  const sh = screen.height || vh;
+  return {
+    w: Math.max(1, Math.min(vw, sw)),
+    h: Math.max(1, Math.min(vh, sh)),
+  };
+}
+
 function fit() {
-  const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
+  const { w, h } = viewportSize();
+  // Nigdy nie powiększamy powyżej 1.0 na siłę przy małym ekranie —
+  // scale > 1 tylko gdy monitor naprawdę jest większy niż canvas.
+  const scale = Math.min(w / DESIGN_W, h / DESIGN_H);
   el.panel.style.transform = `scale(${scale})`;
-  el.panel.style.left = `${Math.round((window.innerWidth - DESIGN_W * scale) / 2)}px`;
-  el.panel.style.top = `${Math.round((window.innerHeight - DESIGN_H * scale) / 2)}px`;
+  el.panel.style.left = `${Math.round((w - DESIGN_W * scale) / 2)}px`;
+  el.panel.style.top = `${Math.round((h - DESIGN_H * scale) / 2)}px`;
+  el.panel.dataset.scale = scale.toFixed(3);
+  el.panel.dataset.vp = `${Math.round(w)}x${Math.round(h)}`;
 }
 
 /* ---------- helpers ---------- */
@@ -343,10 +365,18 @@ function buildStage(card) {
        </div>`
     : "";
 
+  // Etykieta „% BLOCK" + jednostka „%" dawały „7.3% % BLOCK" na scenie.
+  // Z etykiety wywalamy wiodący symbol jednostki.
+  const rawCap = primary ? String(primary.label || "") : "";
+  const unit = primary?.unit || "";
+  const cap = unit && rawCap.startsWith(unit)
+    ? rawCap.slice(unit.length).trim()
+    : rawCap.replace(/^%\s*/, "");
+
   const main = `
     <div class="stage-main">
       <span class="big" data-k="big">—</span>
-      <span class="big-cap" data-k="bigcap">${esc(primary ? primary.label : "")}</span>
+      <span class="big-cap" data-k="bigcap">${esc(cap)}</span>
       ${plateHtml}
     </div>`;
 

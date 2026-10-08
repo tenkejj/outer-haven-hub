@@ -41,27 +41,39 @@ your-hostname.example {
 
 ## 4. Kiosk
 
-Autologin → `startx` → Chromium full-screen, e.g.:
+Autologin on `tty1` → `startx` → Chromium. Example profile:
 
 ```bash
-chromium --kiosk --noerrdialogs --disable-infobars http://127.0.0.1:8090/panel/
+# ~/.bash_profile — start X only on the local console
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  startx
+fi
 ```
 
-No fixed `--window-size`; use the display resolution.
+Install the ready `.xinitrc` (native resolution, `/panel/` URL):
+
+```bash
+cp deploy/kiosk.xinitrc ~/.xinitrc
+chmod +x ~/.xinitrc
+```
+
+**Do not hard-code `1920×1080`** unless that is the panel's native mode.
+Forcing a larger mode / `--window-size` than the physical matrix makes
+Chromium paint off-screen; the monitor then shows a cropped, “zoomed” slice.
+Check with `DISPLAY=:0 xrandr` and `scrot` (framebuffer size = truth).
 
 Two UIs are served:
 
 | URL | UI |
 |-----|-----|
 | `http://127.0.0.1:8090/` | card dashboard (tabs + grid) |
-| `http://127.0.0.1:8090/panel/` | instrument panel (recommended for the 7" screen) |
+| `http://127.0.0.1:8090/panel/` | instrument panel (recommended for kiosk) |
 | `http://127.0.0.1:8090/panel/?cycle=1` | panel that rotates pages on its own |
 
-The panel is laid out for a native **1024×600** panel and scales uniformly,
-so it is sharpest when X runs at that resolution. Check with `xrandr`; if the
-display reports something else, the panel still fits (letterboxed) but the
-design canvas in `frontend/panel/panel.js` (`DESIGN_W` / `DESIGN_H`) is the
-place to change if you want it native.
+The panel canvas is **1024×600** and scales **uniformly** to fit the window
+(letterboxed on taller screens such as 1024×768). It also caps the viewport
+against `screen.width/height`, so a bad `--window-size` no longer blows up
+the layout.
 
 ### SSE and restarts
 
