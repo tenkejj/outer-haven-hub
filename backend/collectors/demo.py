@@ -7,7 +7,7 @@ import random
 import time
 from collections import deque
 
-from .base import Collector, STATUS_ERROR, STATUS_OK, STATUS_WARNING
+from .base import Collector, STATE_MUTED, STATUS_ERROR, STATUS_OK, STATUS_WARNING
 
 HISTORY_LEN = 36
 
@@ -132,8 +132,13 @@ class DemoWireguard(Collector):
             "metrics": [
                 {"label": "LIVE", "value": 1, "type": "number"},
                 {"label": "PEERS", "value": 3, "type": "number"},
-                # TUNNELS = liczba interfejsów wg* (dawniej IFACE — żargon netowy).
                 {"label": "TUNNELS", "value": 1, "type": "number"},
+                {"id": "laptop", "label": "laptop", "value": "ON NET", "type": "status",
+                 "state": STATUS_OK, "kind": "peer", "note": ""},
+                {"id": "phone", "label": "phone", "value": "QUIET", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer", "note": "14m ago"},
+                {"id": "work", "label": "work", "value": "DARK", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer", "note": "never"},
             ],
             "chart": {
                 "type": "line",
@@ -297,6 +302,11 @@ class DemoServices(Collector):
                 "note": u.get("note") or "",
                 "media": bool(u.get("media")),
                 "game": bool(u.get("game")),
+                "kind": (
+                    "feature" if u.get("media") or u.get("game")
+                    else "unit" if u["id"] in {"caddy", "pihole", "hub", "ssh"}
+                    else "quiet"
+                ),
             })
         up = sum(1 for s in unit_states if s["state"] == "active")
         down = len(unit_states) - up

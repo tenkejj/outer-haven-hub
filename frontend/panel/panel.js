@@ -4,10 +4,9 @@
 
    Trzy różnice względem starego app.js — to one były źródłem problemów:
 
-   1. SKALA RÓWNOMIERNA. Stary UI robił scale(sx, sy) osobno w każdej osi,
-      więc font i linie były rozciągane („przybliżone i ściśnięte").
-      Tu jest jedno `scale(s)` = min(w/1024, h/600); na panelu 1024×600
-      wypada 1.0, czyli piksel w piksel.
+   1. SKALA RÓWNOMIERNA przez CSS `zoom` (nie transform:scale).
+      transform:scale na Chromium/Pi zostawiał cele dotyku w starym miejscu
+      — przyciski „nie działały". zoom skaluje layout i hit-testy razem.
 
    2. PUNKTOWE AKTUALIZACJE. Stary UI robił grid.innerHTML = ... co 5 s,
       co uniemożliwiało jakąkolwiek animację. Tu DOM strony budujemy raz
@@ -339,19 +338,81 @@ function paintNav() {
 
 /* ---------- stage ---------- */
 
+function pageKind(card) {
+  const kinds = metricsOf(card).map((m) => m.kind);
+  if (kinds.includes("peer")) return "roster";
+  if (kinds.includes("feature")) return "ops";
+  return "plain";
+}
+
 /** Klucz kształtu — DOM przebudowujemy tylko, gdy zmieni się struktura
     (inna strona, inny zestaw metryk), a nie gdy zmienią się wartości. */
 function shapeKey(card) {
   const { useChips } = partition(card);
+  const kind = pageKind(card);
   return [
     card.id,
     card.error ? "err" : "ok",
-    useChips ? "chips" : "spark",
-    metricsOf(card).map((m) => `${m.label}/${m.importance}/${m.type}`).join(","),
+    kind,
+    kind === "plain" ? (useChips ? "chips" : "spark") : "",
+    metricsOf(card).map((m) => `${m.id || m.label}/${m.kind || ""}/${m.type}`).join(","),
   ].join("#");
 }
 
+function buildRoster(card) {
+  const peers = metricsOf(card).filter((m) => m.kind === "peer");
+  const rows = peers.map((m, i) => `
+    <div class="roster-row" data-peer="${esc(m.id || m.label)}">
+      <span class="roster-idx">${String(i + 1).padStart(2, "0")}</span>
+      <span class="roster-name">${esc(m.label)}</span>
+      <span class="roster-val" data-k="pval">${esc(m.value)}</span>
+      <span class="roster-note" data-k="pnote">${esc(m.note || "")}</span>
+    </div>`).join("");
+  return `
+    <div class="codec">
+      <div class="stage-head">
+        <span class="stage-title">CIPHER</span>
+        <span class="stage-tag" data-k="tag"></span>
+      </div>
+      <div class="codec-live">
+        <span class="big big--mid" data-k="big">—</span>
+        <span class="big-cap">ON THE NET</span>
+      </div>
+      <div class="roster">${rows || `<div class="roster-empty">no peers configured</div>`}</div>
+    </div>`;
+}
+
+function buildOps(card) {
+  const features = metricsOf(card).filter((m) => m.kind === "feature");
+  const units = metricsOf(card).filter((m) => m.kind === "unit");
+  const cards = features.map((m) => `
+    <article class="feat${m.game ? " feat--game" : ""}" data-feat="${esc(m.id || m.label)}">
+      <div class="feat-kicker">${m.game ? "GAME" : "MEDIA"}</div>
+      <div class="feat-name">${esc(m.label)}</div>
+      <div class="feat-val" data-k="fval">${esc(m.value)}</div>
+      ${m.note ? `<div class="feat-note">${esc(m.note)}</div>` : ""}
+    </article>`).join("");
+  const chips = units.map((m) => `
+    <div class="chip chip--sm" data-chip="${esc(m.id || m.label)}">
+      <span class="chip-led" aria-hidden="true"></span>
+      <span class="chip-name">${esc(m.label)}</span>
+    </div>`).join("");
+  return `
+    <div class="ops">
+      <div class="stage-head">
+        <span class="stage-title">OPS</span>
+        <span class="stage-tag" data-k="tag"></span>
+      </div>
+      <div class="ops-grid">${cards}</div>
+      ${chips ? `<div class="ops-units">${chips}</div>` : ""}
+    </div>`;
+}
+
 function buildStage(card) {
+  const kind = pageKind(card);
+  if (kind === "roster" && !(card.error && !metricsOf(card).length)) return buildRoster(card);
+  if (kind === "ops" && !(card.error && !metricsOf(card).length)) return buildOps(card);
+
   const { primary, statuses, useChips, asides } = partition(card);
 
   if (card.error && !metricsOf(card).length) {
@@ -426,20 +487,27 @@ function paintStage() {
   }
 
   const shape = shapeKey(card);
+  const kind = pageKind(card);
   const { primary, statuses, useChips, asides } = partition(card);
 
   if (shape !== stageShape) {
     stageShape = shape;
     el.stage.innerHTML = buildStage(card);
-    // Pasek liczb u dołu skraca wykres — patrz .stage--foot .spark w CSS.
-    el.stage.classList.toggle("stage--foot", asides.length > 0);
-    paintSpark();
+    el.stage.classList.toggle("stage--foot", kind === "plain" && asides.length > 0);
+    el.stage.classList.toggle("stage--codec", kind !== "plain");
+    if (kind === "plain") paintSpark();
   }
 
   el.stage.dataset.status = card.status || "error";
 
   const tag = el.stage.querySelector('[data-k="tag"]');
-  if (tag) tag.textContent = STATE_WORD[card.status] || "—";
+  if (tag) {
+    tag.textContent = kind === "roster"
+      ? "VPN"
+      : kind === "ops"
+        ? `${fmtNum(primary?.num)} UP`
+        : (STATE_WORD[card.status] || "—");
+  }
 
   const big = el.stage.querySelector('[data-k="big"]');
   if (big && primary) {
@@ -472,14 +540,30 @@ function paintStage() {
     val.innerHTML = `${esc(fmtNum(m.num))}${unit}`;
   }
 
+  for (const node of el.stage.querySelectorAll("[data-peer]")) {
+    const m = metricsOf(card).find((x) => String(x.id || x.label) === node.dataset.peer);
+    if (!m) continue;
+    node.dataset.state = m.state || "muted";
+    const val = node.querySelector('[data-k="pval"]');
+    const note = node.querySelector('[data-k="pnote"]');
+    if (val) val.textContent = String(m.value ?? "—");
+    if (note) note.textContent = String(m.note || "");
+  }
+
+  for (const node of el.stage.querySelectorAll("[data-feat]")) {
+    const m = metricsOf(card).find((x) => String(x.id || x.label) === node.dataset.feat);
+    if (!m) continue;
+    node.dataset.state = m.state || "error";
+    const val = node.querySelector('[data-k="fval"]');
+    if (val) val.textContent = String(m.value ?? "—");
+  }
+
   for (const node of el.stage.querySelectorAll("[data-chip]")) {
     const m = statuses.find((x) => String(x.id || x.label) === node.dataset.chip);
     node.dataset.state = m?.state || "error";
   }
 
-  // Historię ciągniemy tylko dla stron, które faktycznie mają wykres —
-  // karta z błędem albo siatka lampek nie ma czego rysować.
-  if (!useChips && card.has_chart) loadHistory(card.id);
+  if (kind === "plain" && !useChips && card.has_chart) loadHistory(card.id);
 }
 
 /* ---------- dock ---------- */
@@ -507,6 +591,14 @@ function blockMode(card) {
 function paintDock() {
   const card = cardById(pageId);
   if (!card) return;
+
+  // Roster i OPS zajmują całą szerokość — dok by je ściskał.
+  const kind = pageKind(card);
+  if (kind !== "plain") {
+    el.dock.hidden = true;
+    el.dockHair.hidden = true;
+    return;
+  }
 
   // Dok bierze dokładnie to, czego nie wzięła scena — patrz partition().
   const details = partition(card).dock;

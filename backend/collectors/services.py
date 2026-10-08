@@ -121,6 +121,17 @@ class ServicesCollector(Collector):
             game = bool(entry.get("game"))
             # critical: false → DOWN nie psuje zbiorczego statusu karty
             critical = entry.get("critical", True)
+            # face mówi panelowi, jak to narysować. Bez pola:
+            #   gra / media = duża karta, kilka usług „domu" = chip,
+            #   reszta systemd (nmbd, cron…) = cicho, żeby Apps nie był śmietnikiem.
+            face = str(entry.get("face") or "").strip().lower()
+            if face not in ("feature", "unit", "quiet"):
+                if game or media:
+                    face = "feature"
+                elif uid.lower() in {"caddy", "pihole", "hub", "ssh"}:
+                    face = "unit"
+                else:
+                    face = "quiet"
 
             state = await self._is_active(unit_name)
             mstate = self._metric_state(state)
@@ -141,6 +152,7 @@ class ServicesCollector(Collector):
                 "note": note,
                 "media": media,
                 "game": game,
+                "kind": face,
             })
 
         up = sum(1 for u in unit_states if u["state"] == "active")
