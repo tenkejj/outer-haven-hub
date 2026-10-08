@@ -122,25 +122,18 @@ class WireguardCollector(Collector):
             {"label": "TUNNELS", "value": len(interfaces), "type": "number"},
         ]
 
-        # Roster na panelu (kind=peer). Stary UI tych metryk nie wyróżnia —
-        # to zwykłe statusy. Pytanie kiosku brzmi „kto jest na łączu", nie „ile".
+        # Lista peerów na panelu (kind=peer). Wartość = wiek handshake'u
+        # („active" / „14m ago" / „never") — bez teatralnych ON NET / QUIET / DARK.
         for info in interfaces.values():
             for peer in info["peers"]:
                 text, state = _describe_handshake(peer["handshake_ts"], now)
-                if state == STATUS_OK:
-                    word = "ON NET"
-                elif peer["handshake_ts"] == 0:
-                    word = "DARK"
-                else:
-                    word = "QUIET"
                 metrics.append({
                     "id": peer["public_key"][:8],
                     "label": self._peer_label(peer["public_key"]),
-                    "value": word,
+                    "value": text,
                     "type": "status",
                     "state": state,
                     "kind": "peer",
-                    "note": "" if state == STATUS_OK else text,
                 })
 
         # Sumaryczny transfer wszystkich interfejsów → próbka prędkości na wykres.

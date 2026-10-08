@@ -133,12 +133,12 @@ class DemoWireguard(Collector):
                 {"label": "LIVE", "value": 1, "type": "number"},
                 {"label": "PEERS", "value": 3, "type": "number"},
                 {"label": "TUNNELS", "value": 1, "type": "number"},
-                {"id": "laptop", "label": "laptop", "value": "ON NET", "type": "status",
-                 "state": STATUS_OK, "kind": "peer", "note": ""},
-                {"id": "phone", "label": "phone", "value": "QUIET", "type": "status",
-                 "state": STATE_MUTED, "kind": "peer", "note": "14m ago"},
-                {"id": "work", "label": "work", "value": "DARK", "type": "status",
-                 "state": STATE_MUTED, "kind": "peer", "note": "never"},
+                {"id": "laptop", "label": "laptop", "value": "active", "type": "status",
+                 "state": STATUS_OK, "kind": "peer"},
+                {"id": "phone", "label": "phone", "value": "14m ago", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer"},
+                {"id": "work", "label": "work", "value": "never", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer"},
             ],
             "chart": {
                 "type": "line",
@@ -275,30 +275,41 @@ class DemoServices(Collector):
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         # Lekka fluktuacja: większość UP, czasem jeden DOWN.
-        self._down_id: str | None = None
+        # Minecraft domyślnie OFF — u użytkownika serwer nie chodzi non-stop.
+        self._down_id: str | None = "nmbd"
         self._tick = 0
 
     async def collect(self) -> dict:
         self._tick += 1
         if self._tick % 8 == 0:
-            self._down_id = random.choice(["nmbd", "wsdd2", "minecraft", None, None])
+            self._down_id = random.choice(["nmbd", "wsdd2", None, None])
         metrics: list[dict] = []
         unit_states: list[dict] = []
         for u in self._UNITS:
-            active = u["id"] != self._down_id
-            state = STATUS_OK if active else STATUS_ERROR
+            critical = u.get("critical", True)
+            # Minecraft (critical:false) zostaje wyłączony w demo — jak na Pi.
+            if u["id"] == "minecraft":
+                active = False
+            else:
+                active = u["id"] != self._down_id
+            if active:
+                mstate = STATUS_OK
+            elif not critical:
+                mstate = STATE_MUTED
+            else:
+                mstate = STATUS_ERROR
             unit_states.append({
                 "id": u["id"],
                 "state": "active" if active else "inactive",
-                "metric_state": state,
-                "critical": u.get("critical", True),
+                "metric_state": mstate,
+                "critical": critical,
             })
             metrics.append({
                 "id": u["id"],
                 "label": u["label"],
                 "value": "ON" if active else "OFF",
                 "type": "status",
-                "state": state,
+                "state": mstate,
                 "note": u.get("note") or "",
                 "media": bool(u.get("media")),
                 "game": bool(u.get("game")),

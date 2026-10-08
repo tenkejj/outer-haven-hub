@@ -48,7 +48,6 @@ const el = {
   overall: document.getElementById("overall"),
   clockTime: document.getElementById("clock-time"),
   clockUp: document.getElementById("clock-up"),
-  hostName: document.getElementById("host-name"),
   toast: document.getElementById("toast"),
   cycleBtn: document.getElementById("cycle-btn"),
   boot: document.getElementById("boot"),
@@ -360,25 +359,29 @@ function shapeKey(card) {
 }
 
 function buildRoster(card) {
+  // VPN: duża liczba LIVE + mini-spark po lewej, lista peerów po prawej.
+  // Spark NIE jest absolutnym tłem całej sceny — inaczej nachodzi na listę.
   const peers = metricsOf(card).filter((m) => m.kind === "peer");
-  const rows = peers.map((m, i) => `
-    <div class="roster-row" data-peer="${esc(m.id || m.label)}">
-      <span class="roster-idx">${String(i + 1).padStart(2, "0")}</span>
-      <span class="roster-name">${esc(m.label)}</span>
-      <span class="roster-val" data-k="pval">${esc(m.value)}</span>
-      <span class="roster-note" data-k="pnote">${esc(m.note || "")}</span>
+  const rows = peers.map((m) => `
+    <div class="peer-row" data-peer="${esc(m.id || m.label)}">
+      <span class="peer-led" aria-hidden="true"></span>
+      <span class="peer-name">${esc(m.label)}</span>
+      <span class="peer-val" data-k="pval">${esc(m.value)}</span>
     </div>`).join("");
   return `
-    <div class="codec">
+    <div class="link">
       <div class="stage-head">
-        <span class="stage-title">CIPHER</span>
+        <span class="stage-title">VPN</span>
         <span class="stage-tag" data-k="tag"></span>
       </div>
-      <div class="codec-live">
-        <span class="big big--mid" data-k="big">—</span>
-        <span class="big-cap">ON THE NET</span>
+      <div class="link-body">
+        <div class="link-live">
+          <span class="big big--vpn" data-k="big">—</span>
+          <span class="big-cap">ACTIVE</span>
+          <div class="spark spark--inset" data-k="spark"></div>
+        </div>
+        <div class="peer-list">${rows || `<div class="peer-empty">no peers</div>`}</div>
       </div>
-      <div class="roster">${rows || `<div class="roster-empty">no peers configured</div>`}</div>
     </div>`;
 }
 
@@ -495,18 +498,21 @@ function paintStage() {
     el.stage.innerHTML = buildStage(card);
     el.stage.classList.toggle("stage--foot", kind === "plain" && asides.length > 0);
     el.stage.classList.toggle("stage--codec", kind !== "plain");
-    if (kind === "plain") paintSpark();
+    if (kind === "plain" || kind === "roster") paintSpark();
   }
 
   el.stage.dataset.status = card.status || "error";
 
   const tag = el.stage.querySelector('[data-k="tag"]');
   if (tag) {
-    tag.textContent = kind === "roster"
-      ? "VPN"
-      : kind === "ops"
-        ? `${fmtNum(primary?.num)} UP`
-        : (STATE_WORD[card.status] || "—");
+    if (kind === "roster") {
+      const peers = metricsOf(card).filter((m) => m.kind === "peer").length;
+      tag.textContent = `${peers} PEERS`;
+    } else if (kind === "ops") {
+      tag.textContent = `${fmtNum(primary?.num)} UP`;
+    } else {
+      tag.textContent = STATE_WORD[card.status] || "—";
+    }
   }
 
   const big = el.stage.querySelector('[data-k="big"]');
@@ -545,9 +551,7 @@ function paintStage() {
     if (!m) continue;
     node.dataset.state = m.state || "muted";
     const val = node.querySelector('[data-k="pval"]');
-    const note = node.querySelector('[data-k="pnote"]');
     if (val) val.textContent = String(m.value ?? "—");
-    if (note) note.textContent = String(m.note || "");
   }
 
   for (const node of el.stage.querySelectorAll("[data-feat]")) {
@@ -563,7 +567,9 @@ function paintStage() {
     node.dataset.state = m?.state || "error";
   }
 
-  if (kind === "plain" && !useChips && card.has_chart) loadHistory(card.id);
+  if ((kind === "plain" || kind === "roster") && !useChips && card.has_chart) {
+    loadHistory(card.id);
+  }
 }
 
 /* ---------- dock ---------- */
@@ -724,7 +730,7 @@ function paint() {
   el.overall.dataset.status = payload.status || "error";
   el.overall.textContent = STATE_WORD[payload.status] || "LINK";
   el.clockUp.textContent = `UP ${payload.uptime || "—"}`;
-  if (payload.host) el.hostName.textContent = String(payload.host).toUpperCase();
+  // Marka w nagłówku to stałe OUTER HAVEN / MOTHER BASE — nie nadpisujemy hostname'em.
 
   paintRail();
   paintNav();
