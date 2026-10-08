@@ -7,7 +7,7 @@ import random
 import time
 from collections import deque
 
-from .base import Collector, STATUS_ERROR, STATUS_OK, STATUS_WARNING
+from .base import Collector, STATE_MUTED, STATUS_ERROR, STATUS_OK, STATUS_WARNING
 
 HISTORY_LEN = 36
 
@@ -24,6 +24,7 @@ class DemoPihole(Collector):
     label = "Pi-hole"
     icon = "shield"
     refresh_interval = 5
+    primary_metric = "% BLOCK"
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -116,6 +117,7 @@ class DemoWireguard(Collector):
     label = "VPN"
     icon = "lock"
     refresh_interval = 5
+    primary_metric = "LIVE"
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -130,8 +132,13 @@ class DemoWireguard(Collector):
             "metrics": [
                 {"label": "LIVE", "value": 1, "type": "number"},
                 {"label": "PEERS", "value": 3, "type": "number"},
-                # TUNNELS = liczba interfejsów wg* (dawniej IFACE — żargon netowy).
                 {"label": "TUNNELS", "value": 1, "type": "number"},
+                {"id": "laptop", "label": "laptop", "value": "ON NET", "type": "status",
+                 "state": STATUS_OK, "kind": "peer", "note": ""},
+                {"id": "phone", "label": "phone", "value": "QUIET", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer", "note": "14m ago"},
+                {"id": "work", "label": "work", "value": "DARK", "type": "status",
+                 "state": STATE_MUTED, "kind": "peer", "note": "never"},
             ],
             "chart": {
                 "type": "line",
@@ -152,6 +159,9 @@ class DemoSystem(Collector):
     label = "System"
     icon = "cpu"
     refresh_interval = 5
+    primary_metric = "CPU"
+    vital_metrics = {"CPU": "CPU", "RAM": "RAM", "TEMP": "TEMP"}
+    metric_ranges = {"TEMP": (30.0, 85.0)}
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -199,6 +209,8 @@ class DemoSmart(Collector):
     label = "Disk"
     icon = "hard-drive"
     refresh_interval = 5
+    primary_metric = "FREE"
+    vital_metrics = {"HEALTH": "SSD"}
 
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
@@ -235,6 +247,7 @@ class DemoServices(Collector):
     label = "Services"
     icon = "box"
     refresh_interval = 5
+    primary_metric = "UP"
 
     # Stała lista jak w config.yaml — UI da się stylować bez Pi.
     _UNITS = [
@@ -289,6 +302,11 @@ class DemoServices(Collector):
                 "note": u.get("note") or "",
                 "media": bool(u.get("media")),
                 "game": bool(u.get("game")),
+                "kind": (
+                    "feature" if u.get("media") or u.get("game")
+                    else "unit" if u["id"] in {"caddy", "pihole", "hub", "ssh"}
+                    else "quiet"
+                ),
             })
         up = sum(1 for s in unit_states if s["state"] == "active")
         down = len(unit_states) - up

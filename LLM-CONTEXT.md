@@ -83,12 +83,16 @@ outerhaven/   (lub outer-haven-hub na Pi)
 │       ├── services.py     ← systemd units → strony SVC / MEDIA
 │       └── demo.py         ← tylko HUB_DEMO=1
 │
-├── frontend/
+├── frontend/               ← UI #1: dashboard kart, serwowany z "/"
 │   ├── index.html          ← shell + page nav HUB|SVC|MEDIA
 │   ├── app.js              ← poll, pages+hash, karty, wykresy, akcje, boot
 │   ├── style.css           ← canvas 1024×600, HUD, hero, charts, svc/media
 │   ├── assets/             ← emblemy Outer Heaven (png)
-│   └── fonts/              ← JetBrainsMonoNerdFont-{Regular,Medium,Bold}.ttf
+│   ├── fonts/              ← JetBrainsMonoNerdFont-{Regular,Medium,Bold}.ttf
+│   └── panel/              ← UI #2: panel instrumentowy, serwowany z "/panel/"
+│       ├── index.html      ← strefy: bar / rail / stage / dock / nav
+│       ├── panel.css       ← stałe strefy px (bez siatki kart)
+│       └── panel.js        ← SSE + punktowe update DOM, strony z API
 │
 └── deploy/
     ├── outer-haven-hub.service   ← systemd
@@ -313,6 +317,31 @@ Karta błędu (cache izolacji):
 
 `uptime` w top-level to uptime **hosta** z `/proc/uptime` (nie uptime procesu).
 
+### `GET /api/state` — lekki stan (dla `/panel/`)
+
+Ta sama koperta co `/api/dashboard`, ale każda karta ma `chart: null`
+i dodatkowe `has_chart: bool`. Powód: historia Pi-hole to 144 punkty × 2
+serie, a wykres widać tylko na jednej stronie naraz.
+
+### `GET /api/history/{collector_id}` — punkty wykresu na żądanie
+
+`{"id": "pihole", "chart": {...}}`. Czyta ten sam cache co `/api/state`,
+więc wejście na stronę z wykresem **nie** generuje ruchu do Pi-hole ani sudo.
+Nieznany collector → 404.
+
+### `GET /api/stream` — SSE ze stanem
+
+`text/event-stream`, ramka `data: <ten sam JSON co /api/state>` co
+`STREAM_INTERVAL_S` (2 s). Nie zmienia częstotliwości odpytywania źródeł —
+te mają własny `refresh_interval` w cache.
+
+Po co push, a nie polling: stary frontend przebudowywał cały DOM co 5 s,
+więc nie dało się animować pojedynczej wartości.
+
+**Pułapka:** reverse proxy potrafi buforować strumień. Panel ma watchdog
+(`WATCHDOG_MS`) i przy ciszy dłuższej niż 8 s sam wraca do pollowania
+`/api/state`, więc za Caddy działa nawet bez `flush_interval -1`.
+
 ### `POST /api/collectors/{collector_id}/actions/{action_id}`
 
 - 404 — nieznany collector.
@@ -432,6 +461,41 @@ Frontend downsampluje do max **48** punktów (`CHART_MAX_POINTS`).
 - `"hero"` — `grid-column: 1 / -1`, layout liczby | wykres (Pi-hole).
 
 Ustawiane w `collect()` jako `"layout": "hero"`, w `snapshot()`: `data.get("layout") or "default"`.
+
+**Uwaga:** `layout` opisuje WYGLĄD i istnieje tylko dla starego UI (`/`).
+Nowy panel go ignoruje i patrzy na warstwę semantyczną poniżej. Nie dodawaj
+kolejnych wartości `layout` — to ślepa uliczka, która wciągnęła prezentację
+do backendu.
+
+### Warstwa semantyczna (dla `/panel/`)
+
+`snapshot()` woła `annotate_metrics()` i dokłada do KAŻDEJ metryki:
+
+| Pole | Typ | Znaczenie |
+|------|-----|-----------|
+| `importance` | `"primary"` \| `"detail"` | waga na własnej stronie |
+| `rail` | bool | czy jest też w szynie widocznej na każdej stronie |
+| `rail_label` | str | krótki podpis w szynie (obecne gdy `rail`) |
+| `num` | float \| null | liczba wyłuskana z `value` (`"46%"` → `46.0`) |
+| `unit` | str | jednostka wyłuskana z `value` (`"%"`, `"°"`, `"GB"`) |
+| `range` | `[lo, hi]` \| null | zakres wskaźnika (procenty dostają `[0,100]`) |
+
+`importance` i `rail` są **ortogonalne** — CPU jest jednocześnie wielką
+liczbą na swojej stronie i stałym wskaźnikiem w szynie.
+
+Collector deklaruje to atrybutami klasy (nic nie musi):
+
+```python
+class SystemCollector(Collector):
+    primary_metric = "CPU"                                  # wielka liczba
+    vital_metrics = {"CPU": "CPU", "RAM": "RAM", "TEMP": "TEMP"}  # szyna
+    metric_ranges = {"TEMP": (30.0, 85.0)}                  # zakres wskaźnika
+```
+
+Bez `primary_metric` pierwsza metryka liczbowa awansuje automatycznie.
+
+`num` / `unit` liczymy w Pythonie, nie w JS — stary frontend parsował
+`"46%"` przez `Number()`, dostawał `NaN` i pokazywał wskaźniki 0%.
 
 ### Błędy w `collect()`
 
@@ -560,13 +624,66 @@ DemoPihole: lokalny timer OFF 5/15 + akcje jak produkcja.
 
 ## 9. Frontend
 
+Są **dwa** frontendy na tym samym API. Stary (`/`) zostaje, bo pozwala
+porównać oba na sprzęcie; docelowy dla kiosku jest panel (`/panel/`).
+
+### 9.0 Panel instrumentowy (`/panel/`) — podejście docelowe
+
+**Dlaczego powstał.** Siatka kart z jednostkami `fr` negocjowała miejsce
+przez CSS, więc wysokość wykresu wynikała z kombinacji klas
+(`.card:not(.card--hero):not(.card--chart-focus) .chart { flex: 0 0 120px }`).
+Każda nowa strona psuła poprzednie — w historii repo jest ciąg commitów,
+które tylko naprawiają układ. Panel usuwa przyczynę, nie objawy.
+
+**Trzy zasady:**
+
+1. **Stałe strefy w pikselach.** 1024×600 dzieli się na: bar 52, mid 478
+   (rail 96 | stage 770 | dock 156), nav 68. Każda strefa zna swój budżet,
+   więc nie ma czego ściskać. Jedyne co się rozciąga to scena (jedna treść)
+   i szyna (równy podział).
+2. **Skala równomierna.** `scale(min(w/1024, h/600))` — jedna wartość, nie
+   `scale(sx, sy)`. Na panelu 1024×600 wychodzi 1.0, piksel w piksel.
+3. **Punktowe aktualizacje DOM.** Strona budowana raz; przy zmianie wartości
+   wpisujemy tekst do węzłów `[data-k]`. Przebudowa tylko gdy zmieni się
+   `shapeKey()` (inna strona / inny zestaw metryk).
+
+**Strony biorą się z API.** Jedna strona = jeden collector, w kolejności
+z `enabled_collectors`. Nowe źródło danych dostaje własną stronę i własny
+kafel w nav **bez zmian w JS/CSS**.
+
+**Reguły renderowania scenu** (decyduje POSTAĆ danych, nie id collectora):
+
+| Warunek | Efekt |
+|---------|-------|
+| metryka `importance: "primary"` | wielka liczba (132 px) + jednostka |
+| `num === null` (np. `"ON"`) | mniejszy stopień (`.big--text`, 78 px) |
+| ≥ 5 metryk `type: "status"` | siatka lampek w scenie (systemd) |
+| < 5 metryk `status` | płytka stanu obok liczby + sparkline w tle |
+| brak detali i akcji | **dok znika**, scena poszerza się o jego 156 px |
+
+Ostatnia reguła jest celowa: pusty dok to dokładnie ta „pustka”, która
+psuła stary UI.
+
+`panel.js` — funkcja `partition(card)` jest JEDNYM miejscem, które rozdziela
+metryki na strefy. Dzięki temu ta sama wartość nie może trafić naraz na scenę
+i do doku (w starym UI Pi-hole pokazywało się na dwóch stronach).
+
+Transport: `EventSource("/api/stream")`, a przy ciszy dłuższej niż
+`WATCHDOG_MS` przejście na polling `/api/state`. Historia wykresu: dociągana
+per strona przez `/api/history/<id>`, odświeżana co `HISTORY_MS`.
+
+`?cycle=1` (albo przycisk CYCLE) włącza auto-rotację stron co `CYCLE_MS`;
+każdy dotyk wstrzymuje ją na `CYCLE_HOLD_MS`.
+
+### 9.1 Dashboard kart (`/`) — poprzednie podejście
+
 ### Pliki
 
 | Plik | Rola |
 |------|------|
 | `frontend/index.html` | shell, boot splash, topbar, page nav, views HUB/SVC/MEDIA, footer |
 | `frontend/app.js` | scale, poll 5 s, pages+hash, render, charts SVG, actions, toast, boot |
-| `frontend/style.css` | design system + layout kart (~1370 linii) |
+| `frontend/style.css` | design system + layout kart (~2000 linii) |
 | `frontend/fonts/*` | JB Nerd lokalnie |
 | `frontend/assets/oh-emblem.png` (+ olive / outer-heaven warianty) | brand w topbarze |
 
@@ -792,6 +909,7 @@ git clone https://github.com/tenkejj/outer-haven-hub.git ~/outer-haven-hub
 
 ## 13. Nieoczywiste decyzje (czytaj przed zmianami)
 
+0. **Dwa frontendy, jedno API** — `/` (karty) i `/panel/` (panel instrumentowy). `/api/dashboard` obsługuje stary UI i musi zostać wstecznie zgodny; panel używa `/api/state` + `/api/history` + `/api/stream`. Warstwa semantyczna metryk jest tylko DODAWANA do karty, więc stary UI jej nie widzi.
 1. **Ikona w kontrakcie, nie w UI** — `icon` jest w snapshot, ale `app.js` go nie rysuje. Albo dodaj ICONS, albo nie zakładaj, że ikony są widoczne.
 2. **Historia Pi-hole = API v6 `/api/history`**, nie v5 z speki — świadomie.
 3. **Brak psutil** — tylko Linux `/proc`/`/sys`; OK na Pi, słabo na Windows/macOS (demo i tak używa `HUB_DEMO`).
@@ -799,7 +917,7 @@ git clone https://github.com/tenkejj/outer-haven-hub.git ~/outer-haven-hub
 5. **Prywatne `_` klucze** — dla `get_status` / `list_actions`; nie wyciekają do FE.
 6. **Footer zawsze LIVE** — nawet przy `HUB_DEMO=1`.
 7. **Re-render całego grida** co 5 s — prostota na Pi; nie wprowadzaj ciężkiego VDOM bez potrzeby.
-8. **Non-uniform scale** — layout „żyje” w 1024×600; nie projektuj w `vh`/`%` viewportu jako źródła prawdy.
+8. **Skala** — stary UI (`/`) używa `scale(sx, sy)` (niejednorodnej, rozciąga font); panel (`/panel/`) używa jednej `scale(s)`. Oba layouty „żyją” w 1024×600 — nie projektuj w `vh`/`%` viewportu jako źródła prawdy.
 9. **Cache-bust** — `NoCacheStaticFiles` + `?v=` w HTML; po większych zmianach CSS podbij query.
 10. **Akcje util/tool** — stuby FE; nowe grupy wymagają uzupełnienia rendererów **albo** użycia `group: "block"` tylko dla Pi-hole-like UX.
 11. **Collector budowany przy imporcie** — nie hot-reload config bez restartu.
@@ -818,7 +936,8 @@ git clone https://github.com/tenkejj/outer-haven-hub.git ~/outer-haven-hub
 4. Import + wpis w `ALL_COLLECTOR_CLASSES` w `registry.py`.
 5. Wpis w `config.yaml` (`enabled_collectors` + `collectors.<id>`).
 6. Jeśli potrzebujesz sudo — **dopisz wąską linię** w `deploy/sudoers-outer-haven-hub` i zaktualizuj `DEPLOY.md`.
-7. **Nie** zmieniaj `main.py` ani `app.js` (chyba że rozszerzasz sam kontrakt / generyczny renderer).
+7. **Nie** zmieniaj `main.py`, `app.js` ani `panel/panel.js` (chyba że rozszerzasz sam kontrakt / generyczny renderer). Panel sam dorobi stronę i kafel w nav dla nowego id.
+7a. Opcjonalnie dodaj `primary_metric` / `vital_metrics` / `metric_ranges` — bez nich panel wybierze pierwszą metrykę liczbową jako wielką liczbę.
 8. Przetestuj: izolacja `python -m collectors.<name>`, potem pełny hub bez demo.
 9. Opcjonalnie: dodaj `DemoX` do `demo.py` + `DEMO_COLLECTORS` (to **wyjątek** od „tylko registry” — tylko dla lokalnego UI bez sprzętu).
 
@@ -833,8 +952,9 @@ git clone https://github.com/tenkejj/outer-haven-hub.git ~/outer-haven-hub
 | Agregator / API / cache | `backend/main.py` |
 | Config | `config.yaml` |
 | Sekrety (szablon) | `backend/.env.example` |
-| UI logika | `frontend/app.js` |
-| UI wygląd | `frontend/style.css` |
+| UI logika (karty) | `frontend/app.js` |
+| UI wygląd (karty) | `frontend/style.css` |
+| UI panel (docelowy) | `frontend/panel/panel.js`, `frontend/panel/panel.css` |
 | Reguły agentów | `.cursorrules` |
 | Deploy | `DEPLOY.md`, `deploy/*` |
 | Krótki kontekst | `KONTEKST.md` |

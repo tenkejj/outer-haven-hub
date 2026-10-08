@@ -53,6 +53,9 @@ class WireguardCollector(Collector):
     icon = "lock"
     refresh_interval = 10
 
+    # Panel: „ilu ludzi jest w tunelu" — to jest pytanie, na które odpowiada VPN.
+    primary_metric = "LIVE"
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         # Mapa: klucz publiczny peera -> przyjazna nazwa (z config.yaml).
@@ -118,6 +121,27 @@ class WireguardCollector(Collector):
             # TUNNELS = ile interfejsów wg* (np. wg0) — czytelniej niż IFACE.
             {"label": "TUNNELS", "value": len(interfaces), "type": "number"},
         ]
+
+        # Roster na panelu (kind=peer). Stary UI tych metryk nie wyróżnia —
+        # to zwykłe statusy. Pytanie kiosku brzmi „kto jest na łączu", nie „ile".
+        for info in interfaces.values():
+            for peer in info["peers"]:
+                text, state = _describe_handshake(peer["handshake_ts"], now)
+                if state == STATUS_OK:
+                    word = "ON NET"
+                elif peer["handshake_ts"] == 0:
+                    word = "DARK"
+                else:
+                    word = "QUIET"
+                metrics.append({
+                    "id": peer["public_key"][:8],
+                    "label": self._peer_label(peer["public_key"]),
+                    "value": word,
+                    "type": "status",
+                    "state": state,
+                    "kind": "peer",
+                    "note": "" if state == STATUS_OK else text,
+                })
 
         # Sumaryczny transfer wszystkich interfejsów → próbka prędkości na wykres.
         grand_rx = grand_tx = 0

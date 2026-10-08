@@ -49,6 +49,10 @@ class PiholeCollector(Collector):
     icon = "shield"
     refresh_interval = 10
 
+    # Panel: procent zablokowanych to jedyna liczba, którą naprawdę czytasz
+    # z drugiego końca pokoju. Reszta (TODAY / CLIENTS) idzie do doku.
+    primary_metric = "% BLOCK"
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         # Adres bazowy z config.yaml; domyślnie Pi-hole na tej samej maszynie.

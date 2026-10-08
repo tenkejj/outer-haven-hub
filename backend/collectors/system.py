@@ -43,6 +43,14 @@ class SystemCollector(Collector):
     icon = "cpu"
     refresh_interval = 5  # metryki systemowe są tanie w odczycie, mogą być "żywe"
 
+    # Panel: CPU na scenie, a CPU/RAM/TEMP dodatkowo w lewej szynie —
+    # to jedyne trzy liczby, które chcesz widzieć na KAŻDEJ stronie.
+    primary_metric = "CPU"
+    vital_metrics = {"CPU": "CPU", "RAM": "RAM", "TEMP": "TEMP"}
+    # Temperatura nie ma naturalnego zakresu 0–100; widełki dla Pi 4
+    # (poniżej 40°C to zimno, 85°C to twardy throttling).
+    metric_ranges = {"TEMP": (30.0, 85.0)}
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         # Liczniki CPU z poprzedniego odczytu — użycie CPU to zawsze RÓŻNICA

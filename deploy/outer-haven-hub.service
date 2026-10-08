@@ -19,7 +19,10 @@ Group=pi
 WorkingDirectory=/home/pi/outer-haven-hub/backend
 EnvironmentFile=-/home/pi/outer-haven-hub/backend/.env
 Environment=HUB_CONFIG=/home/pi/outer-haven-hub/config.yaml
-ExecStart=/home/pi/outer-haven-hub/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8090
+# --timeout-graceful-shutdown: /api/stream trzyma otwarte połączenie SSE,
+# a uvicorn przy wyłączaniu czeka na zamknięcie połączeń. Bez tego limitu
+# `systemctl restart` potrafi wisieć kilkadziesiąt sekund.
+ExecStart=/home/pi/outer-haven-hub/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8090 --timeout-graceful-shutdown 3
 Restart=on-failure
 RestartSec=3
 

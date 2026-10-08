@@ -20,6 +20,21 @@ HUB_DEMO=1 uvicorn main:app --host 127.0.0.1 --port 8090
 
 Open: http://127.0.0.1:8090/
 
+## Two front ends
+
+| URL | UI |
+|-----|-----|
+| `/` | Card dashboard — tabbed grid of cards, one card per source |
+| `/panel/` | **Instrument panel** — one page per source, one big number each |
+
+The panel is built for the 7" 1024×600 touchscreen: fixed pixel zones
+(rail / stage / dock / nav) instead of a card grid, so nothing can squash
+or leave gaps. It scales **uniformly**, so on the panel's native resolution
+it renders pixel-for-pixel. Add `?cycle=1` to rotate pages automatically.
+
+Both read the same collectors; the panel uses the lighter `/api/state`
+plus `/api/stream` (SSE) and pulls chart history only for the page on screen.
+
 ## Deploy
 
 Production setup on a Raspberry Pi: [DEPLOY.md](DEPLOY.md).

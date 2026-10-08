@@ -41,10 +41,54 @@ your-hostname.example {
 
 ## 4. Kiosk
 
-Autologin → `startx` → Chromium full-screen, e.g.:
+Autologin on `tty1` → `startx` → Chromium. Example profile:
 
 ```bash
-chromium --kiosk --noerrdialogs --disable-infobars http://127.0.0.1:8090/
+# ~/.bash_profile — start X only on the local console
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  startx
+fi
 ```
 
-No fixed `--window-size`; use the display resolution.
+Install the ready `.xinitrc` (native resolution, `/panel/` URL):
+
+```bash
+cp deploy/kiosk.xinitrc ~/.xinitrc
+chmod +x ~/.xinitrc
+```
+
+**Do not hard-code `1920×1080`** unless that is the panel's native mode.
+Forcing a larger mode / `--window-size` than the physical matrix makes
+Chromium paint off-screen; the monitor then shows a cropped, “zoomed” slice.
+Check with `DISPLAY=:0 xrandr` and `scrot` (framebuffer size = truth).
+
+Two UIs are served:
+
+| URL | UI |
+|-----|-----|
+| `http://127.0.0.1:8090/` | card dashboard (tabs + grid) |
+| `http://127.0.0.1:8090/panel/` | instrument panel (recommended for kiosk) |
+| `http://127.0.0.1:8090/panel/?cycle=1` | panel that rotates pages on its own |
+
+The panel canvas is **1024×600** and scales **uniformly** to fit the window
+(letterboxed on taller screens such as 1024×768). It also caps the viewport
+against `screen.width/height`, so a bad `--window-size` no longer blows up
+the layout.
+
+### SSE and restarts
+
+The panel subscribes to `GET /api/stream`. Uvicorn waits for open connections
+during shutdown, so an unbounded stream would stall `systemctl restart`. Two
+guards handle this and both are already in the repo:
+
+- `STREAM_MAX_S` in `backend/main.py` ends each stream after ~45 s (the
+  browser reconnects on its own).
+- `--timeout-graceful-shutdown 3` in `deploy/outer-haven-hub.service`.
+
+If you copied the unit file before this change, re-copy it:
+
+```bash
+sudo cp deploy/outer-haven-hub.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart outer-haven-hub
+```

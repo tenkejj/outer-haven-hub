@@ -1,5 +1,23 @@
 # Changelog — Outer Haven Hub
 
+## 2026-08-19 — panel instrumentowy + warstwa semantyczna metryk
+
+Nowe podejście do UI. Siatka kart okazała się źródłem powtarzających się
+awarii układu: wysokość wykresu wynikała z kombinacji klas CSS, więc każda
+nowa strona psuła poprzednie. Panel dzieli ekran na **stałe strefy w px**.
+
+- Frontend `frontend/panel/` (`/panel/`) — rail 96 | scena 770 | dok 156,
+  nav 68 px; jedna strona = jeden collector, jedna wielka liczba na stronę
+- Sparkline jako **tło scenu**, nie widget w ramce — nie ma czego ścisnąć
+- Skala **równomierna** (`scale(s)`, nie `scale(sx, sy)`) — koniec z
+  rozciąganiem fontu i nierównymi włoskami
+- Punktowe aktualizacje DOM zamiast `innerHTML` całej siatki co 5 s
+- Kontrakt: metryki dostają `importance` / `rail` / `num` / `unit` / `range`
+  — collector opisuje ZNACZENIE, nie wygląd (patrz `collectors/base.py`)
+- API: `GET /api/state` (bez historii), `GET /api/history/<id>` (na żądanie),
+  `GET /api/stream` (SSE, z fallbackiem na polling po stronie panelu)
+- Stary UI (`/`) i `GET /api/dashboard` **bez zmian** — da się porównać oba
+
 ## 2026-08-12 — strony HUB / SVC / MEDIA + collector services
 
 - UI: segment `HUB | SVC | MEDIA` (hash `#hub`/`#svc`/`#media`), ten sam shell kiosku

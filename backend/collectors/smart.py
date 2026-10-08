@@ -41,6 +41,11 @@ class SmartCollector(Collector):
     icon = "hard-drive"
     refresh_interval = 60  # SMART zmienia się wolno
 
+    # Panel: wolne miejsce to liczba, po którą sięgasz najczęściej; zdrowie
+    # nośnika trafia do szyny jako czwarty wskaźnik życia (podpis „SSD”).
+    primary_metric = "FREE"
+    vital_metrics = {"HEALTH": "SSD"}
+
     def __init__(self, settings: dict | None = None) -> None:
         super().__init__(settings)
         self.device = str(self.settings.get("device", "/dev/sda"))
