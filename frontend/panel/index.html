@@ -6,61 +6,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <!-- Pusty favicon — bez tego kiosk przy każdym starcie strzela 404. -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="panel.css?v=panel5">
+  <link rel="stylesheet" href="panel.css?v=panel6">
 </head>
 <body>
   <!--
-    Panel instrumentowy — układ w STAŁYCH strefach pikselowych (1024×600).
-    Każda strefa ma twardy budżet wysokości/szerokości, więc nic nie może
-    się „ścisnąć" ani zostawić pustki: nie ma tu siatki kart negocjującej
-    miejsce przez flex/grid fr.
+    frame = pełny ekran, wyśrodkowuje panel.
+    panel = stały canvas 1024×600; skalowany przez CSS zoom (NIE transform),
+    bo transform:scale na Chromium/Pi psuje mapowanie dotyku — trafiasz
+    obok przycisku, który widzisz.
 
-      52px  bar     — marka, zegar, stan zbiorczy
-     478px  mid     — rail 96 | stage 770 | dock 156
-      68px  nav     — wielkie cele dotykowe (jedna strona = jeden collector)
+      52px  bar     — marka, zegar, stan
+     478px  mid     — rail 100 | stage | dock 168
+      70px  nav     — cele dotykowe ≥ 70 px (× zoom ≈ 100+ px na 1600×900)
   -->
-  <div class="panel" id="panel" data-status="ok">
+  <div class="frame" id="frame">
+    <div class="panel" id="panel" data-status="ok">
 
-    <header class="bar">
-      <img class="bar-mark" src="../assets/oh-emblem.png" alt="Outer Haven">
-      <div class="bar-id">
-        <span class="bar-id-main">OUTER HAVEN</span>
-        <span class="bar-id-sub" id="host-name">MOTHER_BASE</span>
+      <header class="bar">
+        <img class="bar-mark" src="../assets/oh-emblem.png" alt="Outer Haven">
+        <div class="bar-id">
+          <span class="bar-id-main">OUTER HAVEN</span>
+          <span class="bar-id-sub" id="host-name">MOTHER_BASE</span>
+        </div>
+        <div class="bar-gap"></div>
+        <div class="bar-toast" id="toast" hidden></div>
+        <button type="button" class="bar-btn" id="cycle-btn" aria-pressed="false">CYCLE</button>
+        <div class="bar-clock">
+          <span class="bar-clock-time" id="clock-time">--:--</span>
+          <span class="bar-clock-up" id="clock-up">UP —</span>
+        </div>
+        <div class="bar-state" id="overall" data-status="ok">LINK</div>
+      </header>
+
+      <div class="hair" aria-hidden="true"></div>
+
+      <div class="mid">
+        <aside class="rail" id="rail" aria-label="Vitals"></aside>
+        <div class="hair-v" aria-hidden="true"></div>
+        <section class="stage" id="stage" aria-live="polite"></section>
+        <div class="hair-v" id="dock-hair" aria-hidden="true"></div>
+        <aside class="dock" id="dock"></aside>
       </div>
-      <div class="bar-gap"></div>
-      <div class="bar-toast" id="toast" hidden></div>
-      <button type="button" class="bar-btn" id="cycle-btn" aria-pressed="false">CYCLE</button>
-      <div class="bar-clock">
-        <span class="bar-clock-time" id="clock-time">--:--</span>
-        <span class="bar-clock-up" id="clock-up">UP —</span>
+
+      <div class="hair" aria-hidden="true"></div>
+
+      <nav class="nav" id="nav" role="tablist" aria-label="Pages"></nav>
+
+      <div class="boot" id="boot">
+        <div class="boot-word" id="boot-word">CONNECTING</div>
       </div>
-      <div class="bar-state" id="overall" data-status="ok">LINK</div>
-    </header>
-
-    <div class="hair" aria-hidden="true"></div>
-
-    <div class="mid">
-      <!-- Szyna życia — te same wskaźniki na KAŻDEJ stronie -->
-      <aside class="rail" id="rail" aria-label="Vitals"></aside>
-      <div class="hair-v" aria-hidden="true"></div>
-
-      <!-- Scena — jedna wielka liczba + sparkline w tle -->
-      <section class="stage" id="stage" aria-live="polite"></section>
-
-      <!-- Dok — szczegóły i akcje dotykowe; ukrywa się, gdy nie ma treści -->
-      <div class="hair-v" id="dock-hair" aria-hidden="true"></div>
-      <aside class="dock" id="dock"></aside>
-    </div>
-
-    <div class="hair" aria-hidden="true"></div>
-
-    <nav class="nav" id="nav" role="tablist" aria-label="Pages"></nav>
-
-    <div class="boot" id="boot">
-      <div class="boot-word" id="boot-word">CONNECTING</div>
     </div>
   </div>
 
-  <script src="panel.js?v=panel5"></script>
+  <script src="panel.js?v=panel6"></script>
 </body>
 </html>

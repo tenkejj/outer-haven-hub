@@ -94,12 +94,14 @@ function viewportSize() {
 function fit() {
   if (!el.panel) return;
   const { w, h } = viewportSize();
-  // contain: cały panel widoczny, ewentualne paski po bokach/górze.
-  // Na 1600×900 → scale 1.5, wysokość wypełniona, ~32 px po bokach.
+  // contain: cały panel widoczny. Na 1600×900 → zoom 1.5.
+  // CSS zoom (Chromium) — NIE transform:scale — bo transform zostawiał
+  // cele dotyku w nieskalowanym miejscu (przyciski „nie działały").
   const scale = Math.min(w / DESIGN_W, h / DESIGN_H);
-  el.panel.style.transform = `scale(${scale})`;
-  el.panel.style.left = `${Math.round((w - DESIGN_W * scale) / 2)}px`;
-  el.panel.style.top = `${Math.round((h - DESIGN_H * scale) / 2)}px`;
+  el.panel.style.zoom = String(scale);
+  el.panel.style.transform = "";
+  el.panel.style.left = "";
+  el.panel.style.top = "";
   el.panel.dataset.scale = scale.toFixed(3);
   el.panel.dataset.vp = `${Math.round(w)}x${Math.round(h)}`;
 }
@@ -300,17 +302,29 @@ function paintRail() {
 
 /* ---------- nav ---------- */
 
+/* Krótkie etykiety zakładek — na 7″ pełne „Pi-hole" / „Services" zajmują
+   za dużo i trudniej trafić wzrokiem. */
+const NAV_LABEL = {
+  pihole: "DNS",
+  wireguard: "VPN",
+  system: "HOST",
+  smart: "DISK",
+  services: "APPS",
+};
+
 function paintNav() {
   const list = cards();
   const shape = list.map((c) => c.id).join("|");
 
   if (shape !== navShape) {
     navShape = shape;
-    el.nav.innerHTML = list.map((c) => `
-      <button type="button" class="tab" role="tab" data-page="${esc(c.id)}">
+    el.nav.innerHTML = list.map((c) => {
+      const name = NAV_LABEL[c.id] || c.label;
+      return `<button type="button" class="tab" role="tab" data-page="${esc(c.id)}">
         <span class="tab-led" aria-hidden="true"></span>
-        <span class="tab-name">${esc(c.label)}</span>
-      </button>`).join("");
+        <span class="tab-name">${esc(name)}</span>
+      </button>`;
+    }).join("");
   }
 
   for (const c of list) {
@@ -726,30 +740,55 @@ async function runAction(actionId, button) {
   }
 }
 
-/* ---------- zdarzenia ---------- */
+/* ---------- zdarzenia (pointer = mysz + dotyk w jednym) ---------- */
 
-el.nav.addEventListener("click", (event) => {
+/** Jedna ścieżka dla click i touch — na kiosku czasem click nie dochodzi,
+    a pointerup/touchend tak. Guard przed podwójnym odpaleniem. */
+function bindTap(node, handler) {
+  if (!node) return;
+  let armed = 0;
+  const go = (event) => {
+    const now = Date.now();
+    if (now - armed < 400) return;
+    armed = now;
+    handler(event);
+  };
+  node.addEventListener("click", go);
+  node.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "mouse") return; // click obsłuży
+    if (event.button != null && event.button !== 0) return;
+    go(event);
+  });
+}
+
+bindTap(el.nav, (event) => {
   const btn = event.target.closest(".tab");
-  if (!btn) return;
+  if (!btn || !el.nav.contains(btn)) return;
   holdCycle();
   setPage(btn.dataset.page);
 });
 
-el.dock.addEventListener("click", (event) => {
+bindTap(el.dock, (event) => {
   const btn = event.target.closest("[data-act]");
-  if (!btn) return;
+  if (!btn || btn.disabled || !el.dock.contains(btn)) return;
   holdCycle();
   runAction(btn.dataset.act, btn);
 });
 
-el.cycleBtn.addEventListener("click", () => setCycle(!cycleOn));
+bindTap(el.cycleBtn, () => setCycle(!cycleOn));
 
-/* Przesunięcie palcem w poprzek scenu = następna / poprzednia strona. */
+/* Przesunięcie palcem w poprzek scenu = następna / poprzednia strona.
+   Próg wyższy (90 px), żeby zwykły tap nie przełączał strony. */
 let touchX = 0;
-el.stage.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+let touchY = 0;
+el.stage.addEventListener("touchstart", (e) => {
+  touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
+}, { passive: true });
 el.stage.addEventListener("touchend", (e) => {
   const dx = e.changedTouches[0].clientX - touchX;
-  if (Math.abs(dx) < 60) return;
+  const dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) < 90 || Math.abs(dx) < Math.abs(dy)) return;
   holdCycle();
   step(dx < 0 ? 1 : -1);
 }, { passive: true });
