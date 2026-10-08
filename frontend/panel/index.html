@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <!-- Pusty favicon — bez tego kiosk przy każdym starcie strzela 404. -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="panel.css?v=panel8">
+  <link rel="stylesheet" href="panel.css?v=panel9">
 </head>
 <body>
   <!--
@@ -15,8 +15,8 @@
     bo transform:scale na Chromium/Pi psuje mapowanie dotyku — trafiasz
     obok przycisku, który widzisz.
 
-      52px  bar     — marka, zegar, stan
-     478px  mid     — rail 100 | stage | dock 168
+      72px  bar     — logo + OUTER HAVEN / MOTHER BASE, zegar, stan
+     456px  mid     — rail 100 | stage | dock 168
       70px  nav     — cele dotykowe ≥ 70 px (× zoom ≈ 100+ px na 1600×900)
   -->
   <div class="frame" id="frame">
@@ -26,7 +26,7 @@
         <img class="bar-mark" src="../assets/oh-emblem.png" alt="Outer Haven">
         <div class="bar-id">
           <span class="bar-id-main">OUTER HAVEN</span>
-          <span class="bar-id-sub" id="host-name">MOTHER_BASE</span>
+          <span class="bar-id-sub">MOTHER BASE</span>
         </div>
         <div class="bar-gap"></div>
         <div class="bar-toast" id="toast" hidden></div>
@@ -58,6 +58,6 @@
     </div>
   </div>
 
-  <script src="panel.js?v=panel8"></script>
+  <script src="panel.js?v=panel9"></script>
 </body>
 </html>

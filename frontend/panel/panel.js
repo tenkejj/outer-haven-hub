@@ -48,7 +48,6 @@ const el = {
   overall: document.getElementById("overall"),
   clockTime: document.getElementById("clock-time"),
   clockUp: document.getElementById("clock-up"),
-  hostName: document.getElementById("host-name"),
   toast: document.getElementById("toast"),
   cycleBtn: document.getElementById("cycle-btn"),
   boot: document.getElementById("boot"),
@@ -731,7 +730,7 @@ function paint() {
   el.overall.dataset.status = payload.status || "error";
   el.overall.textContent = STATE_WORD[payload.status] || "LINK";
   el.clockUp.textContent = `UP ${payload.uptime || "—"}`;
-  if (payload.host) el.hostName.textContent = String(payload.host).toUpperCase();
+  // Marka w nagłówku to stałe OUTER HAVEN / MOTHER BASE — nie nadpisujemy hostname'em.
 
   paintRail();
   paintNav();
