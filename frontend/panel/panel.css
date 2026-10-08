@@ -786,9 +786,7 @@ body {
   border-width: 1px 1px 0 0;
 }
 
-.big--mid { font-size: 64px; }
-
-.codec, .ops {
+.link, .ops {
   position: relative;
   z-index: 1;
   flex: 1;
@@ -798,52 +796,81 @@ body {
   gap: 8px;
 }
 
-.codec-live {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  flex: 0 0 auto;
+.link-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(160px, 0.85fr) 1.35fr;
+  gap: 18px;
+  align-items: stretch;
 }
 
-.roster {
-  flex: 1;
+.link-live {
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+  gap: 2px;
 }
 
-.roster-empty {
-  padding: 20px 4px;
+.big--vpn {
+  font-size: 88px;
+  line-height: 0.9;
+}
+
+/* Spark w kolumnie LIVE — zwykły blok, nie absolute na całą scenę. */
+.spark--inset {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  flex: 1 1 auto;
+  min-height: 72px;
+  margin-top: 8px;
+  opacity: 0.9;
+}
+
+.peer-list {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 4px 12px;
+}
+
+.peer-empty {
+  padding: 16px 0;
   color: var(--text-dim);
   letter-spacing: 0.08em;
 }
 
-.roster-row {
+.peer-row {
   flex: 1 1 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 36px 1fr auto auto;
+  grid-template-columns: 10px 1fr auto;
   align-items: center;
-  gap: 12px;
-  padding: 0 8px 0 10px;
+  gap: 10px;
   border-bottom: 1px solid var(--line);
-  border-left: 3px solid var(--line-hi);
 }
 
-.roster-row[data-state="ok"] { border-left-color: var(--ok); }
-.roster-row[data-state="muted"] { border-left-color: var(--line-hi); }
-.roster-row[data-state="warning"] { border-left-color: var(--warn); }
-.roster-row[data-state="error"] { border-left-color: var(--error); }
+.peer-row:last-child { border-bottom: 0; }
 
-.roster-idx {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
+.peer-led {
+  width: 8px;
+  height: 8px;
+  background: var(--line-hi);
 }
 
-.roster-name {
-  font-size: 22px;
+.peer-row[data-state="ok"] .peer-led { background: var(--ok); }
+.peer-row[data-state="warning"] .peer-led { background: var(--warn); }
+.peer-row[data-state="error"] .peer-led { background: var(--error); }
+
+.peer-name {
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -853,25 +880,17 @@ body {
   text-overflow: ellipsis;
 }
 
-.roster-row[data-state="muted"] .roster-name { color: var(--text); }
+.peer-row[data-state="muted"] .peer-name { color: var(--text-dim); }
 
-.roster-val {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--ok);
-}
-
-.roster-row[data-state="muted"] .roster-val { color: var(--text-dim); }
-.roster-row[data-state="error"] .roster-val { color: var(--error); }
-
-.roster-note {
-  min-width: 72px;
-  text-align: right;
-  font-size: 12px;
+.peer-val {
+  font-size: 13px;
   letter-spacing: 0.06em;
-  color: var(--text-dim);
+  color: var(--ok);
+  white-space: nowrap;
 }
+
+.peer-row[data-state="muted"] .peer-val { color: var(--text-dim); }
+.peer-row[data-state="error"] .peer-val { color: var(--error); }
 
 .ops-grid {
   flex: 1 1 auto;
@@ -886,7 +905,7 @@ body {
   min-height: 0;
   padding: 14px 14px 12px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--ok);
+  border-left: 4px solid var(--line-hi);
   background: var(--panel);
   display: flex;
   flex-direction: column;
@@ -894,8 +913,14 @@ body {
   gap: 6px;
 }
 
+.feat[data-state="ok"] { border-left-color: var(--ok); }
 .feat[data-state="error"] { border-left-color: var(--error); }
 .feat[data-state="warning"] { border-left-color: var(--warn); }
+/* Minecraft i inne critical:false — OFF to nie awaria, tylko standby. */
+.feat[data-state="muted"] {
+  border-left-color: var(--line);
+  opacity: 0.55;
+}
 
 .feat-kicker {
   font-size: 10px;
@@ -913,6 +938,7 @@ body {
 }
 
 .feat--game .feat-name { font-size: 26px; }
+.feat[data-state="muted"] .feat-name { color: var(--text-dim); }
 
 .feat-val {
   font-size: 40px;
@@ -922,7 +948,9 @@ body {
   line-height: 1;
 }
 
+.feat[data-state="ok"] .feat-val { color: var(--ok); }
 .feat[data-state="error"] .feat-val { color: var(--error); }
+.feat[data-state="muted"] .feat-val { color: var(--text-dim); }
 
 .feat-note {
   font-size: 12px;

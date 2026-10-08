@@ -16,7 +16,14 @@ import asyncio
 import logging
 from typing import Any
 
-from .base import STATUS_ERROR, STATUS_OK, STATUS_WARNING, Collector, run_standalone
+from .base import (
+    STATUS_ERROR,
+    STATUS_OK,
+    STATUS_WARNING,
+    STATE_MUTED,
+    Collector,
+    run_standalone,
+)
 
 log = logging.getLogger("hub.services")
 
@@ -88,7 +95,8 @@ class ServicesCollector(Collector):
             return "ON"
         if state == "failed":
             return "FAIL"
-        if state in ("inactive", "dead"):
+        # not-found / unknown / inactive — na kiosku to po prostu OFF.
+        if state in ("inactive", "dead", "not-found", "unknown", ""):
             return "OFF"
         if state == "activating":
             return "…"
@@ -97,12 +105,20 @@ class ServicesCollector(Collector):
         return "?"
 
     @staticmethod
-    def _metric_state(state: str) -> str:
+    def _metric_state(state: str, *, critical: bool) -> str:
+        """Stan metryki — nie całej karty.
+
+        Minecraft i inne critical:false bywają wyłączone celowo. Wtedy
+        pokazujemy szary „OFF" (muted), nie czerwony alarm — bo to nie awaria.
+        """
         if state == "active":
             return STATUS_OK
         if state in ("activating", "deactivating", "reloading"):
             return STATUS_WARNING
-        return STATUS_ERROR
+        if state == "failed":
+            return STATUS_ERROR
+        # inactive / not-found / …
+        return STATUS_ERROR if critical else STATE_MUTED
 
     async def collect(self) -> dict:
         metrics: list[dict] = []
@@ -134,7 +150,7 @@ class ServicesCollector(Collector):
                     face = "quiet"
 
             state = await self._is_active(unit_name)
-            mstate = self._metric_state(state)
+            mstate = self._metric_state(state, critical=critical)
             unit_states.append({
                 "id": uid,
                 "state": state,
