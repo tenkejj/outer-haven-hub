@@ -74,27 +74,28 @@ let watchdog = 0;
 
 /* ---------- viewport: jedna, równomierna skala ---------- */
 
-/** Rozmiar OKNA, w którym panel musi się zmieścić.
-    Chromium w kiosku czasem dostaje --window-size większe niż fizyczny
-    monitor (u nas: .xinitrc wymuszał 1920×1080 na panelu 1024×768) —
-    wtedy innerWidth kłamie, a ekran pokazuje tylko wycinek (= „zoomed”).
-    Bierzemy minimum z viewportu i screen.*, żeby nigdy nie wyjść poza
-    fizyczną matrycę. */
+/** Rozmiar matrycy, do której skalujemy panel.
+    W kiosku ZAWSZE bierzemy screen.width/height — to jest fizyczny X.
+
+    Dlaczego nie innerWidth: .xinitrc dwa razy podawał zły --window-size
+    (najpierw 1920×1080 na mniejszej matrycy → wycinek/zoom; potem
+    `1600x900+0+0` ze złego parsowania xrandr → H="900+0+0", Chromium
+    odpadał na domyślne małe okno → panel 1024×600 w lewym górnym rogu
+    na czarnym 1600×900). screen.* jest odporne na te wpadki. */
 function viewportSize() {
-  const vw = window.visualViewport?.width || window.innerWidth;
-  const vh = window.visualViewport?.height || window.innerHeight;
-  const sw = screen.width || vw;
-  const sh = screen.height || vh;
-  return {
-    w: Math.max(1, Math.min(vw, sw)),
-    h: Math.max(1, Math.min(vh, sh)),
-  };
+  const sw = Number(window.screen?.width) || 0;
+  const sh = Number(window.screen?.height) || 0;
+  const vw = Number(window.visualViewport?.width || window.innerWidth) || 0;
+  const vh = Number(window.visualViewport?.height || window.innerHeight) || 0;
+  if (sw >= 320 && sh >= 240) return { w: sw, h: sh };
+  return { w: Math.max(1, vw), h: Math.max(1, vh) };
 }
 
 function fit() {
+  if (!el.panel) return;
   const { w, h } = viewportSize();
-  // Nigdy nie powiększamy powyżej 1.0 na siłę przy małym ekranie —
-  // scale > 1 tylko gdy monitor naprawdę jest większy niż canvas.
+  // contain: cały panel widoczny, ewentualne paski po bokach/górze.
+  // Na 1600×900 → scale 1.5, wysokość wypełniona, ~32 px po bokach.
   const scale = Math.min(w / DESIGN_W, h / DESIGN_H);
   el.panel.style.transform = `scale(${scale})`;
   el.panel.style.left = `${Math.round((w - DESIGN_W * scale) / 2)}px`;
@@ -774,6 +775,10 @@ document.addEventListener("keydown", (event) => {
 
 window.addEventListener("resize", fit);
 window.addEventListener("orientationchange", fit);
+// screen.* bywa gotowe dopiero po chwili w kiosku — dociśnij skalę.
+window.addEventListener("load", fit);
+setTimeout(fit, 250);
+setTimeout(fit, 1000);
 
 /* ---------- zegar / boot ---------- */
 
@@ -788,7 +793,10 @@ function finishBoot() {
   el.bootWord.textContent = "LINK ESTABLISHED";
   el.bootWord.classList.add("is-ok");
   setTimeout(() => el.boot.classList.add("is-done"), 420);
-  setTimeout(() => el.boot.remove(), 800);
+  setTimeout(() => {
+    el.boot.remove();
+    fit();
+  }, 800);
 }
 
 fit();
