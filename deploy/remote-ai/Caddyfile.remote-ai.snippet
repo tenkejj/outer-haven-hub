@@ -1,0 +1,35 @@
+# Caddy na mother-base — proxy do foxhound (192.168.1.104).
+# Dostęp z iPhone tylko przez WireGuard → Pi 10.10.0.2 (albo nazwę z Local DNS).
+#
+# llama-server zostaje na foxhound 127.0.0.1:8080 (tylko Hermes lokalnie).
+# Na zewnątrz wystawiamy hermes-webui (+ opcjonalnie czat UI).
+#
+# 1) Pi-hole Local DNS (przykład):
+#      hermes.haven → 10.10.0.2   (albo 192.168.1.201 w LAN)
+#      chat.haven   → 10.10.0.2
+# 2) Wklej bloki do Caddyfile, potem: sudo systemctl reload caddy
+# 3) hermes-webui na foxhound musi słuchać na LAN (nie tylko 127.0.0.1), z hasłem:
+#      HERMES_WEBUI_HOST=192.168.1.104 HERMES_WEBUI_PASSWORD=... ./start.sh
+
+# Hermex na iOS: cleartext HTTP tylko dla „sieci lokalnej” / Tailscale —
+# zwykłe http://hermes.haven przez WG bywa blokowane (ATS).
+#
+# Opcja A (docelowa): HTTPS + zaufany root CA Caddy na iPhonie.
+# hermes.haven {
+# 	tls internal
+# 	reverse_proxy 192.168.1.104:8787
+# }
+#
+# Opcja B (szybki test Hermex): HTTP na IP WG Pi (10.10.0.2).
+http://10.10.0.2 {
+	reverse_proxy 192.168.1.104:8787
+}
+
+# Opcjonalnie — wbudowany UI / API llama-server z iPhone (tylko WG!).
+# Wymaga osobnego bindu llama na 192.168.1.104:8080 ALBO małego proxy na foxhound.
+# Domyślnie NIE włączaj, jeśli czat idzie wyłącznie przez Hermesa.
+#
+# chat.haven {
+# 	tls internal
+# 	reverse_proxy 192.168.1.104:8080
+# }

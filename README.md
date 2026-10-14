@@ -24,6 +24,8 @@ Open: http://127.0.0.1:8090/
 
 Full mother-base setup (DNS, VPN, media, kiosk, services): [docs/HOMELAB.md](docs/HOMELAB.md).
 
+Remote AI (iPhone → WireGuard → VPS → PC Qwen/Hermes): [docs/REMOTE-AI.md](docs/REMOTE-AI.md).
+
 ## Deploy
 
 Production setup on a Raspberry Pi: [DEPLOY.md](DEPLOY.md).
