@@ -3,7 +3,8 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** Etap 0–1 OK + hermes-webui na foxhound (`192.168.1.104:8787`, health OK). Dalej: Caddy na Pi → Hermex.
+**Status:** Etap 0–1 OK · hermes-webui na foxhound · UFW LAN:8787 · Caddy `hermes.haven` na Pi.
+Dalej: Local DNS `hermes.haven` → `10.10.0.2` + Hermex na iPhonie.
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
