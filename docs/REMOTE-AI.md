@@ -3,10 +3,39 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** wdrażamy etapami. Najpierw diagnostyka tunelu, potem serwisy na PC.
+**Status:** Etap 0 częściowo zrobiony (Pi). Czekamy na PC + listę peerów z VPS.
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
+
+### Stan z diagnostyki (2026-10-14, mother-base)
+
+| | |
+|--|--|
+| Host | `mother-base` (Pi, aarch64) |
+| LAN | `192.168.1.201/24` na `eth0`, brama `192.168.1.1` |
+| WG | `wg0` = **`10.10.0.2/24`** |
+| Peer VPS | endpoint **`130.61.160.71:51820`**, `allowed ips: 10.10.0.0/24`, keepalive 25s, handshake OK |
+| Hub | `127.0.0.1:8090` (uvicorn) |
+| Caddy | `:80` / `:443` |
+| Pi-hole | `:53`, admin `:8080` |
+| Jellyfin | `:8096` (nasłuchuje) |
+| Unbound | `127.0.0.1:5335` |
+
+Wniosek: Pi jest pearem sieci `10.10.0.0/24` z hubem na VPS. **LAN nie jest w AllowedIPs** —
+z iPhone’a w WG da się naturalnie dojść do `10.10.0.2` (Pi), ale **nie** do `192.168.1.x`
+PC, dopóki nie dodamy peera PC albo reverse proxy na Pi.
+
+**Preferowana trasa Remote AI (opcja B′):**
+
+```text
+iPhone (peer 10.10.0.x)
+  → VPS (hub WG, 130.61.160.71)
+  → Pi 10.10.0.2  (Caddy TLS)
+  → PC 192.168.1.Y:8081 / :8787   (llama-server / hermes-webui na LAN)
+```
+
+PC nie musi mieć własnego WG. Caddy na Pi (już działa) proxy do PC w LAN.
 
 ---
 
@@ -279,21 +308,36 @@ komendami, które dostajesz poniżej i w `deploy/remote-ai/`.
 
 ---
 
-## 11. Pierwszy konkretny krok (teraz)
+## 11. Następny krok (po diagnostyce Pi)
 
-Wklej na **Pi** i podeślij output (wyciątnij sekrety):
+Pi mamy. Brakuje:
+
+1. **PC** — IP LAN + czy w ogóle ma `wg`.
+2. **VPS** — `sudo wg show` (lista peerów: kto ma jakie `10.10.0.x`, czy jest iPhone).
+
+### Na PC
 
 ```bash
-echo '=== host ===' && hostname
-echo '=== addr ===' && ip -4 addr show
-echo '=== wg ===' && sudo wg show
-echo '=== route ===' && ip route
+hostname
+ip -4 addr
+ip route
+command -v wg >/dev/null && sudo wg show || echo 'no wg on PC'
+ping -c2 192.168.1.201
 ```
 
-Potem to samo na **PC** (i jeśli możesz — skrót `wg show` z VPS).
+### Na VPS (SSH)
 
-Na tej podstawie domykamy Etap 1 (która opcja A/B) i dajemy gotowe
-`AllowedIPs` + dokładnie pod jaki IP odpalić Hermex i czat.
+```bash
+hostname
+ip -4 addr show
+sudo wg show
+# Nie wklejaj PrivateKey. Public keys peerów + AllowedIPs wystarczą.
+```
+
+### Pytania na tak/nie
+
+- Czy iPhone jest już pearem tego samego WG (`10.10.0.0/24`)?
+- Jaki jest IP LAN PC (`192.168.1.?`)?
 
 ---
 
