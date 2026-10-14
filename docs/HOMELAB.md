@@ -36,6 +36,7 @@ Nazewnictwo (Outer Haven, mother-base) — inspiracja Metal Gear.
 | Dashboard | **Outer Haven Hub** (`outer-haven-hub.service`) + kiosk 7″ **1600×900** |
 | Magazyn | SSD ~500 GB (`/dev/sda`) + USB backup `/mnt/backup` |
 | Media (plan) | `/srv/media` + Jellyfin/DLNA pod TV **Panasonic TX-40CS520E** |
+| Remote AI (plan) | iPhone → WG → Oracle VPS → dom → **PC** (`llama-server` + Hermes/Hermex) — [`REMOTE-AI.md`](./REMOTE-AI.md) |
 | P2P (plan) | osobna sieć na **WRT54GL** → Pi jako gateway → WG → VPS + kill switch |
 
 ```text
@@ -476,7 +477,9 @@ sudo wg show          # bez PrivateKey w outputcie do czatu
 | Ścieżka | Treść |
 |---------|--------|
 | [`docs/HOMELAB.md`](./HOMELAB.md) | ten dokument (mapa całości) |
+| [`docs/REMOTE-AI.md`](./REMOTE-AI.md) | iPhone → VPS → Qwen + Hermes (etapy wdrożenia) |
 | [`docs/wrt54gl_p2p_architektura.md`](./wrt54gl_p2p_architektura.md) | nota źródłowa P2P / inwentaryzacja |
+| [`deploy/remote-ai/`](../deploy/remote-ai/) | szablony llama-server / Hermes / diagnostyka |
 | `config.yaml` | collectory, SMART device, peer_names, unit’y |
 | `backend/.env` | sekrety (nie w gicie) |
 | `DEPLOY.md` | instalacja huba na Pi |

@@ -1,0 +1,33 @@
+# Opcjonalny fragment Caddy — TYLKO w prywatnej sieci (LAN / WireGuard).
+# Nie wystawiaj tych bloków na publiczny internet bez dodatkowej autoryzacji.
+#
+# Wariant A: Caddy na PC (najprostsze pod Hermex + czat).
+# Wariant B: Caddy na mother-base proxy do IP PC w LAN — wtedy Pi musi
+#            móc połączyć się z PC:8081 / PC:8787.
+#
+# DNS: wpisy Local DNS w Pi-hole, np. chat.haven → IP PC, hermes.haven → IP PC
+# (albo IP Pi, jeśli reverse proxy jest na Pi).
+
+# --- na PC (przykład) ---
+#
+# chat.haven {
+#     tls internal
+#     reverse_proxy 127.0.0.1:8081
+# }
+#
+# hermes.haven {
+#     tls internal
+#     reverse_proxy 127.0.0.1:8787
+# }
+#
+# --- na Pi (proxy do PC — zamień PC_LAN_IP) ---
+#
+# chat.haven {
+#     tls internal
+#     reverse_proxy PC_LAN_IP:8081
+# }
+#
+# hermes.haven {
+#     tls internal
+#     reverse_proxy PC_LAN_IP:8787
+# }

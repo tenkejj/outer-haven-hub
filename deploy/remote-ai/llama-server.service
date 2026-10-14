@@ -1,0 +1,36 @@
+# systemd — llama-server (PC z GPU, nie Raspberry Pi)
+#
+# 1. Zbuduj llama.cpp z CUDA.
+# 2. Skopiuj env:  sudo cp llama-server.env.example /etc/default/llama-server
+# 3. Edytuj ścieżki User=, ExecStart=, EnvironmentFile=
+# 4. sudo cp llama-server.service /etc/systemd/system/
+#    sudo systemctl daemon-reload && sudo systemctl enable --now llama-server
+#
+# Na start bind 127.0.0.1 — wystawienie tylko przez WG / Caddy (patrz docs/REMOTE-AI.md).
+
+[Unit]
+Description=llama.cpp server (local Qwen GGUF)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tenkej
+Group=tenkej
+EnvironmentFile=-/etc/default/llama-server
+# Domyślne wartości gdy brak pliku env — nadpisz w EnvironmentFile.
+Environment=LLAMA_BIN=/home/tenkej/llama.cpp/build/bin/llama-server
+Environment=LLAMA_MODEL=/home/tenkej/models/qwen-9b-q5_k_m.gguf
+Environment=LLAMA_HOST=127.0.0.1
+Environment=LLAMA_PORT=8081
+Environment=LLAMA_NGL=99
+Environment=LLAMA_CTX=8192
+ExecStart=/bin/sh -c 'exec "${LLAMA_BIN}" -m "${LLAMA_MODEL}" --host "${LLAMA_HOST}" --port "${LLAMA_PORT}" -ngl "${LLAMA_NGL}" -c "${LLAMA_CTX}"'
+Restart=on-failure
+RestartSec=5
+
+# Nie wywłaszczaj GPU innym procesom agresywnie — dostosuj u siebie.
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
