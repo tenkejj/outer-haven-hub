@@ -1,338 +1,493 @@
 # Outer Haven — mapa homelaba (mother-base)
 
-Dokument opisuje **cały setup infrastruktury domowej** wokół hosta `mother-base`,
-nie tylko aplikację dashboardu. Źródła: repo `outer-haven-hub`, `config.yaml`,
-deploy, oraz stan znany z eksploatacji na Pi (LAN, kiosk, DNS).
+Kanoniczny opis **całego setupu domowego**: co działa dziś na Raspberry Pi 4,
+jak jest wystawione na LAN, oraz planowany segment P2P (WRT54GL → Pi → WireGuard
+→ Oracle VPS).
+
+**Źródła**
+
+| Źródło | Co wnosi |
+|--------|----------|
+| `wrt54gl_p2p_architektura.md` (11.08.2026) | inwentaryzacja Pi, dyski, porty, topologia T-Mobile/CGNAT, projekt P2P |
+| repo `outer-haven-hub` + eksploatacja kiosku | Hub, DNS `hub.haven`, usługi w `config.yaml`, panel 7″ |
+| ten dokument | jeden spójny obraz; bez sekretów |
 
 Nazewnictwo (Outer Haven, mother-base) — inspiracja Metal Gear.
 
-> **Uwaga:** sekrety (hasła Pi-hole App, klucze WireGuard) **nie** należą do tego
-> pliku. Trzymaj je w `backend/.env` / konfiguracji WG poza gitem.
+> **Sekrety poza gitem:** hasła Pi-hole App, klucze WireGuard, tokeny, certyfikaty.
+> Do diagnostyki wolno wysyłać `lsblk`, `df`, `ss`, `wg show` **bez** PrivateKey.
+
+**Status projektu P2P:** odłożony do fizycznego dostępu do WRT54GL.
+**Nie zmieniać produkcyjnej konfiguracji Pi „na zapas”.**
 
 ---
 
 ## 1. Na jednym rzucie oka
 
-| Warstwa | Co to jest |
-|--------|------------|
-| Host | Raspberry Pi 4 — hostname **`mother-base`** |
-| Rola | DNS (Pi-hole + Unbound), VPN (WireGuard), media (Jellyfin), pliki (Samba), dashboard kiosk (Outer Haven Hub), opcjonalnie Minecraft |
-| Sieć LAN | typowo `192.168.1.0/24`; Pi widziane jako **`192.168.1.201`** |
-| Nazwy lokalne | `mother-base`, **`hub.haven`** (lokalny DNS przez Pi-hole) |
-| Wejście z LAN / WG | **Caddy** (TLS) → reverse proxy na usługi na loopback / lokalnych portach |
-| Ekran | 7″ touchscreen kiosk, natywna matryca **1600×900**, Chromium full-screen |
-| Kod dashboardu | https://github.com/tenkejj/outer-haven-hub → `~/outer-haven-hub` na Pi |
+| Warstwa | Stan |
+|--------|------|
+| Host | Raspberry Pi 4 · hostname **`mother-base`** · user **`tenkej`** · ~4 GB RAM |
+| Internet | T-Mobile → **CGNAT** (brak publicznego IPv4 na domu) |
+| Główna LAN | `192.168.1.0/24` |
+| Pi w LAN | ostatnio w eksploatacji **`192.168.1.201`**; w planie P2P roboczo `192.168.1.50` — potwierdzić przed zmianami |
+| DNS domu | **Pi-hole** (:53, admin :8080) → **Unbound** (`127.0.0.1:5335`) |
+| HTTPS / proxy | **Caddy** :80/:443 → m.in. Hub na `127.0.0.1:8090`, nazwa **`hub.haven`** |
+| VPN | **WireGuard** na Pi → **Oracle VPS** (istniejący tunel; też baza pod P2P) |
+| Dashboard | **Outer Haven Hub** (`outer-haven-hub.service`) + kiosk 7″ **1600×900** |
+| Magazyn | SSD ~500 GB (`/dev/sda`) + USB backup `/mnt/backup` |
+| Media (plan) | `/srv/media` + Jellyfin/DLNA pod TV **Panasonic TX-40CS520E** |
+| P2P (plan) | osobna sieć na **WRT54GL** → Pi jako gateway → WG → VPS + kill switch |
 
-```
-                         Internet
-                             │
-                   [ router / brama LAN ]
-                             │
-                    192.168.1.0/24  (LAN)
-                             │
-         ┌───────────────────┼────────────────────┐
-         │                   │                    │
-   laptop / phone       mother-base          inne urządzenia
-   (klienci WG)         192.168.1.201
-                             │
-                             ├── eth0
-                             ├── Pi-hole + Unbound   (DNS domu)
-                             ├── WireGuard          (VPN do domu)
-                             ├── Caddy              (TLS + proxy)
-                             ├── Jellyfin :8096
-                             ├── Samba (smbd/…)
-                             ├── Minecraft :25565   (opcjonalnie, często OFF)
-                             ├── Outer Haven Hub    127.0.0.1:8090
-                             └── kiosk Chromium → /panel/ lub /
+```text
+                         INTERNET
+                            |
+                         CGNAT
+                            |
+                       T-Mobile
+                            |
+              +-------------+-------------+
+              |                           |
+          GŁÓWNA LAN                  WRT54GL   ← plan (odłożone)
+       192.168.1.0/24                     |
+              |                       P2P LAN
+              |                    192.168.50.0/24
+              |                           |
+         mother-base                 P2P client
+         (Pi 4)                           |
+              |                           v
+              |                    Raspberry Pi
+              |                    (gateway P2P)
+              |                           |
+              |                       WireGuard
+              |                           |
+              +---------------------------+
+                                          |
+                                     Oracle VPS
+                                          |
+                                       Internet
 ```
 
 ---
 
 ## 2. Sprzęt — mother-base
 
-| Element | Stan / założenie |
-|--------|-------------------|
-| SoC | Raspberry Pi 4 |
+### 2.1 Host
+
+| | |
+|--|--|
 | Hostname | `mother-base` |
-| Konto (eksploatacja) | `tenkej` (repo w `~/outer-haven-hub`; unit systemd w repo bywa z szablonem `User=pi` — na żywej maszynie ścieżki/konto trzeba dopasować) |
-| Dysk | SSD widziany jako **`/dev/sda`**, montowany na `/` — monitorowany SMART (`smartctl`) |
-| Sieć | Ethernet **`eth0`** (metryki NET IN/OUT w hubie) |
-| Wyświetlacz | panel dotykowy 7″, **1600×900** (nie zgadywać 1920×1080) |
-| Kiosk | X11 (`startx` / `~/.xinitrc`) → Chromium `--kiosk` na `http://127.0.0.1:8090/…` |
+| Użytkownik | `tenkej` (uid typowo 1000) |
+| SoC | Raspberry Pi 4 |
+| RAM | ~4 GB (ostatni odczyt: Mem 3.7 Gi, available ~3.0 Gi; Swap 2.0 Gi + zram) |
+| Repo huba | `~/outer-haven-hub` (unit w repo bywa z szablonem `User=pi` — na Pi dopasować ścieżki) |
+
+### 2.2 Dyski (ostatnie `lsblk`)
+
+| Urządzenie | Rozmiar | FS | Mount | Model / rola |
+|------------|---------|-----|-------|----------------|
+| `sda` | 465.8 G | — | — | **WDC WDS500G2B0A** (SSD ~500 GB) |
+| `sda1` | 512 M | vfat | `/boot/firmware` | boot |
+| `sda2` | 465.3 G | ext4 | `/` | system + dane |
+| `sdb` | 7.5 G | — | — | USB Disk |
+| `sdb1` | 7.5 G | ext4 | `/mnt/backup` | backup |
+| `sdb2` | 32 M | vfat | — | — |
+| `zram0` / loop swap | 2 G | — | `[SWAP]` | swap |
+
+Ostatnie `df -hT` na `/`:
+
+```text
+/dev/sda2  ext4  459G  5.6G  435G  2% /
+```
+
+Hub monitoruje SMART na **`/dev/sda`** (`config.yaml` + sudoers — argv 1:1).
+
+### 2.3 Magazyn mediów (plan)
+
+Dziś `/srv` puste. Docelowo **bez** przepartycjonowania SSD:
+
+```text
+/srv/media/
+├── Filmy/
+├── Seriale/
+└── Zdjecia/
+```
+
+Uwaga: wspólna partycja z `/` nie izoluje miejsca — pełny dysk mediów może
+uderzyć w usługi systemowe. Przed produkcyjnym wrzucaniem filmów ustalić limit
+(osobny FS / loop / quota), nie polegać wyłącznie na reserved blocks ext4.
+
+### 2.4 Kiosk
+
+| | |
+|--|--|
+| Ekran | 7″ touchscreen, natywne **1600×900** (nie zgadywać 1920×1080) |
+| Start | autologin → `startx` → `~/.xinitrc` / wzorzec `deploy/kiosk.xinitrc` |
+| Browser | Chromium `--kiosk`, URL lokalny `http://127.0.0.1:8090/…` |
+| UI | dashboard `/` oraz instrument panel `/panel/` (branch panelowy) |
 
 ---
 
-## 3. Sieć i DNS
+## 3. Sieć — stan obecny
 
-### 3.1 Adresacja
+### 3.1 Topologia dziś
 
-| Nazwa | Wartość | Skąd |
-|------|---------|------|
-| LAN IP Pi | `192.168.1.201` | dostęp administracyjny (m.in. panel Pi-hole po IP) |
-| Hostname | `mother-base` | system + URL-e usług (`http://mother-base:8096`, `smb://mother-base`) |
-| Hub w przeglądarce | `https://hub.haven/` | lokalna strefa / wpis DNS w Pi-hole + Caddy |
-| Hub loopback | `http://127.0.0.1:8090/` | backend FastAPI (tylko localhost) |
-
-### 3.2 Ścieżka DNS w domu
-
-1. Klienci LAN mają DNS → **Pi-hole** (na mother-base).
-2. Pi-hole filtruje reklamy / listy.
-3. Rekursja / resolver w tle: **Unbound** (`unbound.service`).
-4. Lokalne nazwy (`hub.haven`, ewentualnie inne `*.haven`) — Local DNS / wpisy w Pi-hole.
-
-Typowy dostęp admin Pi-hole z LAN: `https://192.168.1.201/admin/`
-(gdy Caddy/proxy tak wystawia; dokładny port zależy od Caddyfile na Pi).
-
-### 3.3 Caddy
-
-- Słucha 80/443 (albo wg Caddyfile).
-- Backend huba **nie** jest wystawiony na świat — tylko `127.0.0.1:8090`.
-- Przykład bloku w repo: `deploy/Caddyfile.snippet` (`tls internal` + `reverse_proxy`).
-- Na Pi używane hostname’y w stylu **`hub.haven`** (nie przykładowe `hub.lan` z snippetu).
-
-Jeśli Caddy zajmuje 80/443, API Pi-hole często jest na **`:8080`** —
-wtedy w `config.yaml`: `collectors.pihole.base_url: "http://127.0.0.1:8080"`.
-
-### 3.4 WireGuard
-
-- Interfejsy `wg*` na mother-base.
-- Hub czyta stan przez `sudo wg show all dump` (wąski sudoers).
-- Friendly names peerów: `config.yaml` → `collectors.wireguard.peer_names`
-  (mapa public key → np. `laptop` / `phone`).
-- Peerzy spoza domu łączą się do usług po VPN (hub, media, pliki — zależnie od `AllowedIPs`).
-
-### 3.5 Router / WRT54GL (P2P)
-
-W kolejce / załączniku użytkownika jest osobny opis:
-
-`wrt54gl_p2p_architektura.md`
-
-Ten plik opisuje warstwę routera (Linksys WRT54GL) i architekturę P2P względem
-reszuty sieci. **Treść należy wkleić / zmerge’ować do sekcji poniżej**, gdy plik
-będzie dostępny w workspace — tu zostawione miejsce na kanoniczny opis z tego źródła.
-
+```text
+Internet → CGNAT → T-Mobile → Główna LAN → Raspberry Pi 4 (mother-base)
 ```
-TODO — treść z wrt54gl_p2p_architektura.md:
-- rola WRT54GL w LAN (brama / AP / osobny segment?)
-- adresacja, VLAN / DMZ jeśli są
-- reguły firewall / port forwarding pod P2P
-- jak mother-base łączy się z tym routerem
+
+Pi siedzi w **głównej** sieci domowej. Osobnego segmentu P2P jeszcze nie ma.
+
+### 3.2 Adresacja
+
+| Nazwa | Wartość | Uwaga |
+|------|---------|--------|
+| Główna LAN | `192.168.1.0/24` | wspólna dla telefonu, laptopa, TV, Pi |
+| Pi (eksploatacja) | `192.168.1.201` | widziane przy admin Pi-hole / hub.haven |
+| Pi (plan P2P, roboczo) | `192.168.1.50` | z dokumentu WRT — **nie wpisywać w ciemno** |
+| Hostname | `mother-base` | URL-e usług |
+| Hub po DNS | `https://hub.haven/` | Local DNS (Pi-hole) + Caddy |
+| Hub loopback | `http://127.0.0.1:8090/` | FastAPI tylko localhost |
+
+### 3.3 DNS
+
+```text
+klienci LAN → Pi-hole (:53) → Unbound (127.0.0.1:5335) → Internet
+                 └─ Local DNS: hub.haven, mother-base, …
 ```
+
+- **Pi-hole FTL** — DNS domu, DHCP helper (widać też :67/:123 w snapshotcie portów).
+- **Unbound** — rekursja lokalnie na **5335** (nie na publicznym :53).
+- Admin Pi-hole: typowo przez Caddy lub bezpośrednio **`:8080`**
+  (`https://192.168.1.201/admin/` w eksploatacji).
+- Gdy Caddy trzyma 80/443, w `config.yaml` huba często:
+  `collectors.pihole.base_url: "http://127.0.0.1:8080"`.
+
+### 3.4 Porty (ostatnie `ss -tulpn`)
+
+| Bind | Usługa |
+|------|--------|
+| UDP/TCP `0.0.0.0:53` | pihole-FTL |
+| UDP `0.0.0.0:67`, `:123` | pihole-FTL |
+| UDP/TCP `127.0.0.1:5335` | unbound |
+| UDP `0.0.0.0:5353` | avahi-daemon |
+| TCP `0.0.0.0:22` | sshd |
+| TCP `0.0.0.0:80`, `:443` | caddy |
+| TCP `0.0.0.0:8080` | pihole-FTL (admin) |
+| TCP `127.0.0.1:8090` | Outer Haven Hub (uvicorn) |
+| TCP `127.0.0.1:2019` | caddy (admin API lokalnie) |
+
+Przed większymi zmianami **ponowić** snapshot portów.
+
+### 3.5 Caddy
+
+Reverse proxy + HTTPS (`tls internal` dla nazw lokalnych). Backend huba **nie**
+jest rootem i **nie** słucha na WAN — tylko loopback `:8090`.
+
+Przykład w repo: `deploy/Caddyfile.snippet`. Produkcyjny Caddyfile na Pi może
+mieć bloki `hub.haven`, Pi-hole, itd.
+
+### 3.6 WireGuard (istniejący)
+
+Na Pi jest już tunel **WireGuard → Oracle VPS**.
+
+```text
+Raspberry Pi ──🔒 wg──► Oracle VPS ──► Internet
+```
+
+- Hub czyta stan peerów przez `sudo wg show all dump` (wąski sudoers).
+- Friendly names: `config.yaml` → `peer_names` (np. laptop / phone) — to osobna
+  oś „kto jest w tunelu”, nie mylić z przyszłym routowaniem P2P.
+- Diagnostyka OK: `sudo wg show`. **Nie** wysyłać PrivateKey.
+
+Rola VPS dziś / w planie P2P: publiczny punkt wyjścia (dom jest za CGNAT T-Mobile).
 
 ---
 
-## 4. Usługi na mother-base
+## 4. Usługi na Pi
 
-Lista zgodna z `config.yaml` → `collectors.services.units` (to, co hub monitoruje).
+### 4.1 Snapshot „running” (dokument WRT, 11.08.2026)
 
-### 4.1 Krytyczna infrastruktura
+21 jednostek w stanie running, m.in.:
 
-| Usługa | Jednostka systemd | Port / URL | Rola |
-|--------|-------------------|------------|------|
-| Pi-hole | `pihole-FTL.service` | admin WWW / DNS :53 | filtrowanie DNS, Local DNS |
-| Unbound | `unbound.service` | resolver | rekursja DNS za Pi-hole |
-| Caddy | `caddy.service` | 80/443 | TLS + reverse proxy |
-| Outer Haven Hub | `outer-haven-hub.service` | `127.0.0.1:8090` | agregator + UI kiosku |
-| SSH | `ssh.service` | :22 | administracja |
-| NetworkManager | `NetworkManager.service` | — | sieć hosta |
-| WireGuard | (interfejsy wg, niekoniecznie jedna unitka w liście hub) | UDP WG | zdalny dostęp |
+`pihole-FTL`, `unbound`, `caddy`, `outer-haven-hub`, `ssh`, `NetworkManager`,
+`avahi-daemon`, `bluetooth`, `cron`, `smartmontools`, `wpa_supplicant`, …
 
-### 4.2 Media i pliki
+### 4.2 Usługi istotne / monitorowane w Hubie
 
-| Usługa | Jednostka | Dostęp | Uwagi |
-|--------|-----------|--------|--------|
-| Jellyfin | `jellyfin.service` | `http://mother-base:8096` | media server |
-| Samba | `smbd.service` | `smb://mother-base` | udziały plików („Files”) |
-| NMBD | `nmbd.service` | NetBIOS | odkrywanie w LAN Windows |
-| WSDD | `wsdd2.service` | WS-Discovery | widoczność w Eksploratorze |
-| Winbind | `winbind.service` | — | `critical: false` |
+Z `config.yaml` → `collectors.services.units` (+ stan z inwentaryzacji):
 
-### 4.3 Gry (opcjonalne)
+| Usługa | Unit | Dostęp / port | Rola | Uwagi |
+|--------|------|---------------|------|--------|
+| Pi-hole | `pihole-FTL.service` | :53, admin :8080 | DNS domu | krytyczna |
+| Unbound | `unbound.service` | `127.0.0.1:5335` | resolver | krytyczna |
+| Caddy | `caddy.service` | :80/:443 | TLS + proxy | krytyczna |
+| Outer Haven Hub | `outer-haven-hub.service` | `127.0.0.1:8090` | dashboard / kiosk | krytyczna |
+| SSH | `ssh.service` | :22 | admin | krytyczna |
+| NetworkManager | `NetworkManager.service` | — | sieć hosta | |
+| Avahi | `avahi-daemon.service` | :5353 mDNS | discovery | `critical: false`; **≠ DLNA** |
+| SMARTD | `smartmontools.service` | — | dysk | hub i tak woła `smartctl` |
+| Jellyfin | `jellyfin.service` | `http://mother-base:8096` | media | w config hub; biblioteka pod `/srv/media` |
+| Samba / Files | `smbd.service` (+ nmbd, wsdd2, winbind) | `smb://mother-base` | pliki | w config hub |
+| Minecraft | `minecraft.service` | `:25565` | gra | `critical: false` — OFF = standby |
 
-| Usługa | Jednostka | Port | Uwagi |
-|--------|-----------|------|--------|
-| Minecraft | `minecraft.service` | `mother-base:25565` | `critical: false` — OFF to normalny standby, nie awaria huba |
+Nextcloud: wpis w `enabled_collectors` zakomentowany — na później.
 
-### 4.4 Wsparcie / tło
+### 4.3 Użytkownicy systemowi (skrót)
 
-| Usługa | Jednostka | Uwagi |
-|--------|-----------|--------|
-| Avahi | `avahi-daemon.service` | mDNS; `critical: false` |
-| Bluetooth | `bluetooth.service` | `critical: false` |
-| Cron | `cron.service` | `critical: false` |
-| SMARTD | `smartmontools.service` | monitoring dysku; hub i tak woła `smartctl` osobno |
-
-### 4.5 Planowane / wyłączone w configu
-
-- **Nextcloud** — wpis w `enabled_collectors` zakomentowany (`# - nextcloud`), collector dopiero do dodania.
+Obok kont standardowych: `tenkej`, `pihole`, `unbound`, `caddy`, `dnsmasq`, `avahi`, …
 
 ---
 
-## 5. Outer Haven Hub (dashboard)
+## 5. Outer Haven Hub
 
-### 5.1 Stack
+| | |
+|--|--|
+| Stack | Python 3 + FastAPI + uvicorn · vanilla HTML/CSS/JS |
+| Bind | **tylko** `127.0.0.1:8090` |
+| Config | `config.yaml` + `backend/.env` (`PIHOLE_APP_PASSWORD`) |
+| Deploy | systemd + `deploy/sudoers-outer-haven-hub` + Caddy |
+| UI | MGS / Mother Base — oliwkowy akcent, bez glow / fioletu / emoji |
+| Collectory | `pihole`, `wireguard`, `system`, `smart`, `services` |
 
-| Warstwa | Technologia |
-|--------|-------------|
-| Backend | Python 3 + FastAPI + uvicorn, **tylko** `127.0.0.1:8090` |
-| Frontend | vanilla HTML/CSS/JS (bez React/Vue) |
-| Config | `config.yaml` + sekrety w `backend/.env` |
-| Deploy | systemd + wąski sudoers (`smartctl`, `wg`) + Caddy |
+**URL-e**
 
-### 5.2 Co zbiera (collectory)
+| Cel | Adres |
+|-----|--------|
+| Hub (LAN) | `https://hub.haven/` |
+| Panel kiosk | `https://hub.haven/panel/` |
+| Hub lokalnie | `http://127.0.0.1:8090/` |
+| Pi-hole admin | `https://192.168.1.201/admin/` (lub przez Caddy) |
+| Jellyfin | `http://mother-base:8096` |
+| Samba | `smb://mother-base` |
 
-| id | Źródło | Sens na ekranie |
-|----|--------|-----------------|
-| `pihole` | API v6 (SID + App Password) | % blokad, klienci, historia 24h, akcje OFF 5M / 15M / ON |
-| `wireguard` | `wg show all dump` | LIVE peerzy, ruch, lista peerów |
-| `system` | `/proc`, `/sys` | CPU, RAM, TEMP, sieć |
-| `smart` | `smartctl` na `/dev/sda` | zdrowie SSD, temperatura, wolne miejsce |
-| `services` | `systemctl is-active` | Jellyfin, Files, Minecraft, Caddy, Pi-hole, Hub, SSH, … |
+Sudoers (argv = config 1:1):
 
-### 5.3 UI — dwa powierzchnie
-
-| URL | Rola |
-|-----|------|
-| `http://127.0.0.1:8090/` lub `https://hub.haven/` | klasyczny dashboard (zakładki HUB / DNS / NET / DISK / SYS / SVC / MEDIA — zależnie od brancha) |
-| `…/panel/` | instrument panel pod kiosk 7″ (DNS / VPN / HOST / DISK / APPS) — branch panelowy |
-
-Kiosk na Pi powinien celować w ten URL, który faktycznie ma otwarty Chromium
-(w `deploy/kiosk.xinitrc` na branchu panelowym: `/panel/`).
-
-### 5.4 Estetyka
-
-MGS / Mother Base: flat HUD, mono, akcent oliwkowy `#8f9a63`, narożniki L,
-duże cele dotykowe. Bez gradientów, glow, fioletu, glassmorphism, emoji.
-
-### 5.5 Sudoers (krytyczne)
-
-```
-# deploy/sudoers-outer-haven-hub — argv musi być 1:1 z config.yaml
+```text
 … NOPASSWD: /usr/sbin/smartctl -i -H -A -j /dev/sda
 … NOPASSWD: /usr/bin/wg show all dump
 ```
 
-Zmiana dysku w `config.yaml` **wymaga** tej samej zmiany w sudoers.
+Szczegóły kontraktu collectorów: `LLM-CONTEXT.md`, `KONTEKST.md`, `DEPLOY.md`.
 
 ---
 
-## 6. Kiosk (ekran na mother-base)
+## 6. Media i TV (plan)
 
-1. Autologin użytkownika graficznego → `startx`.
-2. `~/.xinitrc` (wzorzec: `deploy/kiosk.xinitrc`):
-   - `xrandr --auto` — natywny tryb matrycy,
-   - parsowanie czystego `W×H` (np. `1600x900`) **bez** sufiksu `+0+0`,
-   - Chromium `--kiosk --window-size=${W},${H}` → hub.
-3. Skalowanie UI: design canvas (panel 1024×600 lub shell dashboardu) dopasowany do viewportu;
-   na panelu instrumentowym używane jest CSS `zoom` (nie `transform: scale`),
-   żeby trafienia dotykowe na Chromium/Pi były zsynchronizowane z obrazem.
-4. DPMS / screensaver — krótkie timeouty w xinitrc (oszczędność matrycy).
+### 6.1 Jellyfin + DLNA
 
----
+```text
+SSD (/)
+ └── /srv/media/{Filmy,Seriale,Zdjecia}
+           │
+           └── Jellyfin → biblioteka / metadane / DLNA
+```
 
-## 7. Dostęp — ściągawka URL
+Na Pi 4 priorytet: **Direct Play**, nie transkodowanie.
 
-| Cel | Adres |
-|-----|--------|
-| Hub (LAN, po DNS) | `https://hub.haven/` |
-| Hub panel kiosk | `https://hub.haven/panel/` |
-| Hub lokalnie na Pi | `http://127.0.0.1:8090/` |
-| Pi-hole admin (IP) | `https://192.168.1.201/admin/` |
-| Jellyfin | `http://mother-base:8096` |
-| Samba | `smb://mother-base` |
-| Minecraft | `mother-base:25565` (gdy unit aktywny) |
-| SSH | `ssh tenkej@mother-base` lub `@192.168.1.201` |
+Avahi pomaga w lokalnym discovery, ale **nie zastępuje DLNA**.
 
-Z WireGuard — te same hostname’y / IP w tunelu, o ile routing/`AllowedIPs` na to pozwala.
+### 6.2 Profil pod Panasonic TX-40CS520E
+
+Starszy Full HD — docelowa biblioteka:
+
+| | Preferowane | Unikać jako baza |
+|--|-------------|------------------|
+| Video | H.264 / AVC, 1080p | 4K, HEVC, AV1 |
+| Audio | AAC, MP3 | DTS (jako główny) |
+| Kontener | MP4 | MKV tylko po teście na TV |
 
 ---
 
-## 8. Pliki i sekrety (gdzie co żyje)
+## 7. Projekt P2P — WRT54GL → Pi → WG → Oracle VPS
 
-| Ścieżka | Zawartość |
-|---------|-----------|
-| `~/outer-haven-hub/` | clone repo na Pi |
-| `config.yaml` | włączone collectory, device SMART, peer_names WG, lista unitów |
-| `backend/.env` | `PIHOLE_APP_PASSWORD=…` (App Password z Pi-hole, nie hasło UI) |
-| `/etc/systemd/system/outer-haven-hub.service` | unit huba |
-| `/etc/sudoers.d/outer-haven-hub` | smartctl + wg |
-| Caddyfile (systemowy) | bloki `hub.haven`, Pi-hole, itd. |
-| `~/.xinitrc` | start kiosku |
-| Konfiguracja WG | poza tym repo (klucze / `wg0.conf`) |
-| `wrt54gl_p2p_architektura.md` | architektura routera / P2P (osobny dokument użytkownika) |
+> Cel: **osobny segment legalnego P2P**, izolowany od głównej LAN, z wyjściem
+> wyłącznie przez WireGuard na VPS. Status: **czekamy na fizyczny WRT54GL**.
 
-Dev na laptopie: lokalny clone (np. `/home/tenkej/dev/outerhaven`) + `HUB_DEMO=1`.
+Pełna nota źródłowa: [`wrt54gl_p2p_architektura.md`](./wrt54gl_p2p_architektura.md).
+
+### 7.1 Role
+
+| Element | Rola | Nie robi |
+|---------|------|----------|
+| **WRT54GL** | osobny router/firewall P2P: DHCP, izolacja LAN | nie zastępuje Pi-hole / Unbound / WG / VPS |
+| **Raspberry Pi** | gateway P2P: forwarding, WG, reguły | nie jest klientem torrent „zamiast” izolacji |
+| **WireGuard** | szyfrowany tunel Pi ↔ VPS | nie jest szyfrowaniem BitTorrent |
+| **Oracle VPS** | koniec tunelu, NAT, publiczne IP wyjścia | nie „niewidzialność” — VPS widzi ruch po dekapsulacji |
+| **Kill switch** | gdy WG padnie → P2P **bez** fallbacku na T-Mobile | włączać dopiero po działającym routingu |
+
+### 7.2 Adresacja robocza (do potwierdzenia po podłączeniu WRT)
+
+```text
+Główna LAN:     192.168.1.0/24
+  Raspberry Pi: 192.168.1.50     (roboczo; dziś często .201)
+  WRT WAN:      192.168.1.2
+
+P2P LAN:        192.168.50.0/24
+  WRT LAN:      192.168.50.1
+  klient P2P:   192.168.50.10
+```
+
+### 7.3 Przepływ pakietu (docelowo)
+
+```text
+P2P client (192.168.50.10)
+    → WRT54GL (192.168.50.1)
+    → Raspberry Pi (gateway)
+    → wg0
+    → Oracle VPS (NAT)
+    → Internet / peer
+```
+
+Peer powinien widzieć **publiczne IP VPS**, nie adres za CGNAT T-Mobile.
+
+WRT **nie musi** obsługiwać WireGuarda — tylko izolację i routing do Pi.
+
+### 7.4 Kill switch
+
+```text
+P2P → wg0 → VPS → Internet     ✅
+P2P → zwykły WAN (T-Mobile)    ❌ zablokowane
+```
+
+Testować osobno: WG ON / WG OFF. Bez fallbacku.
+
+### 7.5 BitTorrent Protocol Encryption
+
+Opcjonalna warstwa **aplikacyjna** (klient P2P). To **nie** zamiennik WireGuard:
+
+```text
+BitTorrent 🔐  →  WireGuard 🔒  →  VPS  →  Internet
+```
+
+T-Mobile widzi połączenie z VPS i metadane; treść w tunelu WG jest szyfrowana.
+VPS po dekapsulacji widzi ruch wychodzący. Nie obiecywać „pełnej anonimowości”.
+
+### 7.6 Segmentacja
+
+```text
+Główna LAN 192.168.1.0/24     telefon, laptop, TV, Pi, …
+P2P LAN    192.168.50.0/24     tylko klient(y) P2P
+```
+
+Firewall: ograniczyć `P2P LAN → Główna LAN` (tylko świadome wyjątki).
+
+### 7.7 Obciążenie Pi
+
+| Składnik | Orientacyjnie |
+|----------|----------------|
+| routing / NAT / DNS | niskie |
+| WireGuard | zależy od transferu |
+| dużo połączeń P2P | średnie |
+| transkodowanie Jellyfin | wysokie — unikać |
+
+Monitoring przy testach: `uptime`, `htop`, `free -h`, `sudo wg show`, `ip -s link`.
+
+### 7.8 Plan wdrożenia (po dostaniu WRT)
+
+```text
+BACKUP → DIAGNOSTYKA → WRT → P2P LAN → ROUTING → WIREGUARD → KILL SWITCH → TESTY → KLIENT P2P
+```
+
+| Etap | Co |
+|------|-----|
+| 0 | backup config, `wg`, routing, firewall, SSH zostaje |
+| 1 | WRT: rev/firmware, WAN, P2P LAN, DHCP, izolacja |
+| 2 | WRT→Pi, IP forwarding, test bez VPN |
+| 3 | P2P przez `wg0`, test publicznego IP / DNS / throughput |
+| 4 | kill switch ON/OFF |
+| 5 | klient P2P + protocol encryption + limity |
+| 6 | monitoring |
+
+**Punkt wznowienia:** gdy WRT będzie fizycznie dostępny — model/revizja/firmware,
+zdjęcia portów jeśli trzeba; **nie resetować** na ślepo; z Pi zebrać
+`ip addr`, `ip route`, `sudo wg show`, firewall **bez sekretów**.
+
+Do czasu WRT **nie** ustalamy finalnej adresacji, reguł, firmware ani NAT na VPS.
 
 ---
 
-## 9. Operacje codzienne
+## 8. Operacje
 
-### Update huba na Pi
+### Update Huba
 
 ```bash
 cd ~/outer-haven-hub
-git fetch origin
-git checkout <branch>
-git pull --ff-only
+git fetch origin && git checkout <branch> && git pull --ff-only
 sudo systemctl restart outer-haven-hub
-# twarde odświeżenie Chromium na kiosku / Ctrl+Shift+R w przeglądarce
+# Ctrl+Shift+R / restart kiosku
 ```
 
-### Szybki healthcheck
+### Healthcheck
 
 ```bash
-systemctl is-active outer-haven-hub caddy pihole-FTL unbound jellyfin smbd
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8090/
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8090/panel/
-systemctl is-active minecraft.service || true
+systemctl is-active outer-haven-hub caddy pihole-FTL unbound
+curl -s -o /dev/null -w "hub %{http_code}\n" http://127.0.0.1:8090/
+free -h; df -hT /; sudo wg show
 ```
 
-### Demo bez Pi (dev)
+### Demo UI bez Pi
 
 ```bash
-cd backend
-HUB_DEMO=1 uvicorn main:app --host 127.0.0.1 --port 8090
+cd backend && HUB_DEMO=1 uvicorn main:app --host 127.0.0.1 --port 8090
+```
+
+### Bezpieczna diagnostyka (OK do wklejenia po ocenzurowaniu)
+
+```bash
+lsblk
+df -hT
+free -h
+systemctl list-units --type=service --state=running --no-pager
+ss -tulpn
+ip addr
+ip route
+sudo wg show          # bez PrivateKey w outputcie do czatu
+```
+
+**Nie** wysyłać: PrivateKey, haseł, `.env`, tokenów, całych `/etc` w archiwum.
+
+---
+
+## 9. Mapa zależności
+
+```text
+[klienci głównej LAN]
+        │
+        ├─ DNS ──► Pi-hole :53 ──► Unbound :5335 ──► Internet
+        │              └─ hub.haven / mother-base
+        │
+        ├─ HTTPS ─► Caddy :443 ──► Hub :8090
+        │                      └─► Pi-hole admin :8080
+        │
+        ├─ (plan) media ─► Jellyfin :8096 ← /srv/media
+        └─ (plan) pliki ─► Samba
+
+[segment P2P — plan]
+  klient → WRT54GL → Pi (forward + kill switch) → wg0 → Oracle VPS → peer
+
+[Hub]
+  httpx→Pi-hole · sudo wg · /proc·/sys · sudo smartctl · systemctl
 ```
 
 ---
 
-## 10. Mapa zależności (logiczna)
+## 10. Pliki referencyjne
 
-```
-[klienci LAN / WG]
-        │
-        ├─ DNS ──────► Pi-hole ──► Unbound ──► Internet
-        │                 │
-        │                 └─ Local DNS: hub.haven, mother-base, …
-        │
-        ├─ HTTPS ────► Caddy ──► Outer Haven Hub (:8090)
-        │                    └─► Pi-hole admin (np. :8080)
-        │
-        ├─ media ────► Jellyfin (:8096)
-        ├─ pliki ────► Samba (smbd + nmbd/wsdd)
-        └─ gra ──────► Minecraft (:25565)   [opcjonalnie]
-
-[Hub backend]
-        ├─ httpx → Pi-hole API
-        ├─ sudo wg → WireGuard
-        ├─ /proc,/sys → System
-        ├─ sudo smartctl → SSD
-        └─ systemctl → Services
-```
+| Ścieżka | Treść |
+|---------|--------|
+| [`docs/HOMELAB.md`](./HOMELAB.md) | ten dokument (mapa całości) |
+| [`docs/wrt54gl_p2p_architektura.md`](./wrt54gl_p2p_architektura.md) | nota źródłowa P2P / inwentaryzacja |
+| `config.yaml` | collectory, SMART device, peer_names, unit’y |
+| `backend/.env` | sekrety (nie w gicie) |
+| `DEPLOY.md` | instalacja huba na Pi |
+| `LLM-CONTEXT.md` | kontrakt API / collectorów dla LLM |
+| `deploy/*` | systemd, sudoers, Caddy snippet, kiosk xinitrc |
 
 ---
 
-## 11. Co jest poza zakresem tego dokumentu
-
-- Pełna treść `SPECYFIKACJA-outer-haven-hub.md` (żyje poza repo na mother-base).
-- Szczegóły firmware / reguł **WRT54GL** — uzupełnij z `wrt54gl_p2p_architektura.md`.
-- Hasła, prywatne klucze WG, App Password Pi-hole.
-- Dokładny Caddyfile produkcyjny (może odbiegać od snippetu w repo).
-
----
-
-## 12. Changelog dokumentu
+## 11. Changelog dokumentu
 
 | Data | Zmiana |
 |------|--------|
-| 2026-10-14 | Pierwsza wersja mapy homelaba na podstawie repo + eksploatacji mother-base; sekcja WRT54GL jako TODO pod plik użytkownika |
+| 2026-10-14 | Pierwsza mapa z repo + eksploatacji kiosku |
+| 2026-10-14 | Scalenie z `wrt54gl_p2p_architektura.md`: dyski, porty, T-Mobile/CGNAT, Oracle VPS, plan P2P/WRT, media/TV, plan wdrożenia |
