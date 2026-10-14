@@ -3,32 +3,41 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** Etap 0 — Pi + PC OK. Brakuje listy peerów z VPS / potwierdzenia iPhone.
+**Status:** Etap 0 zamknięty (Pi + PC + VPS). Dalej: Etap 1 (iPhone → Pi) + Etap 2 (llama na foxhound).
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
 
 ### Stan z diagnostyki (2026-10-14)
 
-| Host | Interfejs | IP | WG |
-|------|-----------|-----|-----|
-| **mother-base** (Pi) | `eth0` | `192.168.1.201/24` | `wg0` = **`10.10.0.2/24`** → VPS `130.61.160.71:51820`, AllowedIPs `10.10.0.0/24` |
-| **foxhound** (PC) | `enp5s0` | **`192.168.1.104/24`** | brak — i tak OK |
-| brama LAN | — | `192.168.1.1` | — |
+| Host | Rola | IP |
+|------|------|-----|
+| **sumit** (Oracle VPS) | hub WG | `wg0` **`10.10.0.1/24`**, listen `:51820`, public `130.61.160.71` |
+| **mother-base** (Pi) | peer | LAN `192.168.1.201`, WG **`10.10.0.2`** |
+| **foxhound** (PC) | silnik AI | LAN **`192.168.1.104`**, bez WG |
+| peer `10.10.0.3` | ? | na VPS; handshake **~5 dni temu** (nieaktywny) — potwierdź czy to iPhone / laptop |
 
-Pi ↔ PC: ping OK (~3 ms). Na Pi działa Caddy `:443`, Hub `:8090`, Jellyfin `:8096`.
+Peery na VPS (AllowedIPs):
 
-**Trasa Remote AI (ustalone):**
+| Peer | AllowedIPs | Stan |
+|------|------------|------|
+| Pi (`qIKh…`) | `10.10.0.2/32` | handshake świeży |
+| `7i0L…` | `10.10.0.3/32` | handshake ~5 dni; duży transfer historyczny |
+
+Pi ↔ foxhound w LAN: ping OK. Caddy na Pi `:443`.
+
+**Trasa Remote AI:**
 
 ```text
-iPhone (peer WG 10.10.0.x)
-  → VPS hub 130.61.160.71
-  → Pi 10.10.0.2  (Caddy)
-  → foxhound 192.168.1.104:8081  llama-server
-  → foxhound 192.168.1.104:8787  hermes-webui
+iPhone (peer WG — .3 albo nowy .4)
+  → sumit 10.10.0.1  (VPS hub, 130.61.160.71:51820)
+  → mother-base 10.10.0.2  (Caddy)
+  → foxhound 192.168.1.104:8081 / :8787
 ```
 
-PC **nie** dostaje WireGuard. Proxy tylko z Pi w LAN.
+Żeby iPhone → Pi działało przez hub, na VPS musi być **IP forwarding** między peerami WG
+(`sysctl net.ipv4.ip_forward=1` + reguły FORWARD na `wg0`). Samo dodanie peera nie wystarczy,
+jeśli forwarding jest wyłączony.
 
 ---
 
