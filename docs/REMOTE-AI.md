@@ -3,7 +3,7 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** Etap 0 zamknięty (Pi + PC + VPS). Dalej: Etap 1 (iPhone → Pi) + Etap 2 (llama na foxhound).
+**Status:** Etap 0–1 OK. iPhone (`10.10.0.3`) wchodzi na Pi przez WG. Dalej: Etap 2 (`llama-server` na foxhound).
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
@@ -12,32 +12,19 @@ Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
 
 | Host | Rola | IP |
 |------|------|-----|
-| **sumit** (Oracle VPS) | hub WG | `wg0` **`10.10.0.1/24`**, listen `:51820`, public `130.61.160.71` |
-| **mother-base** (Pi) | peer | LAN `192.168.1.201`, WG **`10.10.0.2`** |
+| **sumit** (Oracle VPS) | hub WG | `wg0` **`10.10.0.1/24`**, `:51820`, public `130.61.160.71` |
+| **mother-base** (Pi) | peer + Caddy | LAN `192.168.1.201`, WG **`10.10.0.2`** |
+| **iPhone** | peer | WG **`10.10.0.3`** — dostęp do Pi **potwierdzony** |
 | **foxhound** (PC) | silnik AI | LAN **`192.168.1.104`**, bez WG |
-| peer `10.10.0.3` | ? | na VPS; handshake **~5 dni temu** (nieaktywny) — potwierdź czy to iPhone / laptop |
 
-Peery na VPS (AllowedIPs):
-
-| Peer | AllowedIPs | Stan |
-|------|------------|------|
-| Pi (`qIKh…`) | `10.10.0.2/32` | handshake świeży |
-| `7i0L…` | `10.10.0.3/32` | handshake ~5 dni; duży transfer historyczny |
-
-Pi ↔ foxhound w LAN: ping OK. Caddy na Pi `:443`.
-
-**Trasa Remote AI:**
+**Trasa (działa do Pi; AI jeszcze lokalnie na PC):**
 
 ```text
-iPhone (peer WG — .3 albo nowy .4)
-  → sumit 10.10.0.1  (VPS hub, 130.61.160.71:51820)
-  → mother-base 10.10.0.2  (Caddy)
-  → foxhound 192.168.1.104:8081 / :8787
+iPhone 10.10.0.3
+  → sumit 10.10.0.1
+  → mother-base 10.10.0.2  (Caddy / hub)
+  → foxhound 192.168.1.104:8081 / :8787   ← Etap 2–4
 ```
-
-Żeby iPhone → Pi działało przez hub, na VPS musi być **IP forwarding** między peerami WG
-(`sysctl net.ipv4.ip_forward=1` + reguły FORWARD na `wg0`). Samo dodanie peera nie wystarczy,
-jeśli forwarding jest wyłączony.
 
 ---
 
