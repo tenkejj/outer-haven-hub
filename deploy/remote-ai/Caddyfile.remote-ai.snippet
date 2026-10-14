@@ -11,8 +11,15 @@
 # 3) hermes-webui na foxhound musi słuchać na LAN (nie tylko 127.0.0.1), z hasłem:
 #      HERMES_WEBUI_HOST=192.168.1.104 HERMES_WEBUI_PASSWORD=... ./start.sh
 
-hermes.haven {
-	tls internal
+# Opcja A — HTTPS z tls internal (Hermex wymaga zaufania do CA Caddy na iPhonie).
+# hermes.haven {
+# 	tls internal
+# 	reverse_proxy 192.168.1.104:8787
+# }
+
+# Opcja B — samo HTTP w prywatnej sieci WG (szybsze pod Hermex; hasło nadal wymagane).
+# Caddy nie robi wtedy auto-HTTPS dla tego hosta.
+http://hermes.haven {
 	reverse_proxy 192.168.1.104:8787
 }
 
