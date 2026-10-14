@@ -82,7 +82,7 @@ Oracle VPS
     v
 sieć domowa  (Pi i/lub PC w AllowedIPs / routingu)
     │
-    ├── PC :8081  llama-server   → czat Qwen (GGUF na GPU)
+    ├── PC :8080  llama-server   → czat Qwen (GGUF na GPU)
     └── PC :8787  hermes-webui   → Hermex (agent + narzędzia)
 ```
 
@@ -176,7 +176,7 @@ Wklej wyniki Etapu 0 (bez sekretów) — wtedy dopisujemy dokładne `AllowedIPs`
 
 ## 5. Etap 1 — zasięg iPhone → PC
 
-Cel: z iPhone’a (WG włączony) otwierasz `http://<IP-PC>:8081/health` lub ping.
+Cel: z iPhone’a (WG włączony) otwierasz `http://<IP-PC>:8080/health` lub ping.
 
 1. PC nie może być uśpiony (wyłącz suspend przy zasilaniu / `systemctl mask sleep.target` ostrożnie — albo „inhibit” tylko gdy serwer działa).
 2. Firewall PC: pozwól na porty **tylko** z sieci WG / LAN, nie z całego internetu.
@@ -211,15 +211,15 @@ cd llama.cpp
 ```bash
 ./build/bin/llama-server \
   -m ~/models/TWOJ-QWEN-9B-Q5_K_M.gguf \
-  --host 127.0.0.1 --port 8081 \
+  --host 127.0.0.1 --port 8080 \
   -ngl 99 -c 8192
 ```
 
 Test:
 
 ```bash
-curl -s http://127.0.0.1:8081/health
-curl -s http://127.0.0.1:8081/v1/models
+curl -s http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8080/v1/models
 ```
 
 Szablon unit: `deploy/remote-ai/llama-server.service` + `llama-server.env.example`.
@@ -241,7 +241,7 @@ Opcje (wybierz jedną):
 
 Wspólne: UI woła OpenAI-compatible API:
 
-`POST http://<pc>:8081/v1/chat/completions`
+`POST http://<pc>:8080/v1/chat/completions`
 
 Dostęp **tylko** przez WG (iPhone w tunelu). Bez publicznego port-forward na T-Mobile.
 
@@ -283,7 +283,7 @@ Zamiast `tailscale serve`:
 (CF to publiczny hostname — wtedy hasło jest obowiązkowe i akceptujesz edge CF).
 
 Skonfiguruj Hermesa tak, by jako backend LLM używał lokalnego `llama-server`
-(`http://127.0.0.1:8081/v1/...`), nie chmury — wtedy agent i czat dzielą ten sam Qwen na GPU.
+(`http://127.0.0.1:8080/v1/...`), nie chmury — wtedy agent i czat dzielą ten sam Qwen na GPU.
 
 ### Czy Hermes działa po odłożeniu telefonu?
 
@@ -342,18 +342,18 @@ Gdy masz GGUF Qwen ~9B Q5:
 
 ```bash
 # przykładowy test — dostosuj ścieżki do swojego builda llama.cpp
-./llama-server -m ~/models/qwen-*.gguf --host 127.0.0.1 --port 8081 -ngl 99 -c 8192
+./llama-server -m ~/models/qwen-*.gguf --host 127.0.0.1 --port 8080 -ngl 99 -c 8192
 # w drugim terminalu:
-curl -s http://127.0.0.1:8081/health
+curl -s http://127.0.0.1:8080/health
 ```
 
 Potem otwarcie tylko na LAN (dla proxy z Pi), nie na świat:
 
 ```bash
 # dopiero gdy localhost działa — bind na LAN PC:
-./llama-server -m ~/models/qwen-*.gguf --host 192.168.1.104 --port 8081 -ngl 99 -c 8192
+./llama-server -m ~/models/qwen-*.gguf --host 192.168.1.104 --port 8080 -ngl 99 -c 8192
 # z Pi:
-curl -s http://192.168.1.104:8081/health
+curl -s http://192.168.1.104:8080/health
 ```
 
 ---
