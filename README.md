@@ -20,6 +20,10 @@ HUB_DEMO=1 uvicorn main:app --host 127.0.0.1 --port 8090
 
 Open: http://127.0.0.1:8090/
 
+## Homelab map
+
+Full mother-base setup (DNS, VPN, media, kiosk, services): [docs/HOMELAB.md](docs/HOMELAB.md).
+
 ## Deploy
 
 Production setup on a Raspberry Pi: [DEPLOY.md](DEPLOY.md).
