@@ -251,11 +251,17 @@ Dostęp **tylko** przez WG (iPhone w tunelu). Bez publicznego port-forward na T-
 
 Hermex (App Store) mówi do **hermes-webui**, nie do wbudowanego dashboardu Hermesa.
 
-### Na PC
+### Na PC (foxhound)
+
+Hermes Agent (CLI) ≠ **hermes-webui** (to, czego potrzebuje Hermex).
+Jeśli `~/hermes-webui` nie istnieje — zainstaluj UI osobno:
 
 ```bash
-git clone https://github.com/nesquena/hermes-webui.git
-cd hermes-webui
+# opcjonalnie: gdzie jest agent
+command -v hermes; ls -d ~/.hermes ~/hermes* 2>/dev/null
+
+git clone https://github.com/nesquena/hermes-webui.git ~/hermes-webui
+cd ~/hermes-webui
 python3 bootstrap.py
 ```
 
