@@ -23,8 +23,33 @@ Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
 iPhone 10.10.0.3
   → sumit 10.10.0.1
   → mother-base 10.10.0.2  (Caddy / hub)
-  → foxhound 192.168.1.104:8081 / :8787   ← Etap 2–4
+  → foxhound 192.168.1.104:8787  hermes-webui  (Hermex)
+       └── lokalnie 127.0.0.1:8080  llama-server (Qwen3.5-9B Q5) ← tylko Hermes
 ```
+
+### Kanoniczna komenda llama-server (foxhound)
+
+```bash
+/home/tenkej/llama.cpp/build/bin/llama-server \
+  -m ~/Models/Qwen3.5-9B/Qwen3.5-9B-Q5_K_M.gguf \
+  --alias qwen3.5-9b-q5 \
+  -ngl 20 \
+  -c 65536 \
+  -np 1 \
+  -b 512 \
+  -ub 128 \
+  -fa on \
+  -ctk q8_0 \
+  -ctv q8_0 \
+  --no-kv-offload \
+  --reasoning off \
+  --reasoning-budget 0 \
+  --host 127.0.0.1 \
+  --port 8080
+```
+
+`llama-server` zostaje na **localhost** (backend Hermesa). Z iPhone’a nie łączymy
+się prosto do :8080 — tylko do **hermes-webui** przez Caddy na Pi.
 
 ---
 
@@ -337,9 +362,9 @@ curl -s http://192.168.1.104:8081/health
 
 | Port | Serwis | Bind na start |
 |------|--------|----------------|
-| 8081 | llama-server | `127.0.0.1` → potem WG |
-| 8787 | hermes-webui | `127.0.0.1` + hasło |
-| 8080 | (zajęte na Pi przez Pi-hole) — nie kolidować | — |
+| foxhound `:8080` | llama-server | `127.0.0.1` — tylko Hermes na PC |
+| foxhound `:8787` | hermes-webui | LAN `192.168.1.104` + hasło → Caddy na Pi |
+| Pi `:8080` | Pi-hole admin | inna maszyna — brak kolizji z foxhound |
 
 ---
 
