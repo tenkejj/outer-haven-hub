@@ -3,7 +3,8 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** `https://hermes.haven` działa z Pi (DNS + Caddy → foxhound:8787). Dalej: Hermex na iPhonie.
+**Status (2026-10-14):** Hermex na iPhonie działa przez `http://10.10.0.2`
+(Caddy na Pi → foxhound `:8787`). Model: Qwen3.5-9B na `llama-server` `127.0.0.1:8080`.
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
