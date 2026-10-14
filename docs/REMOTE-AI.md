@@ -3,39 +3,32 @@
 Planowana droga: czat z lokalnym modelem i sterowanie agentem Hermesa
 z iPhone’a na uczelni, bez wystawiania API na publiczny internet.
 
-**Status:** Etap 0 częściowo zrobiony (Pi). Czekamy na PC + listę peerów z VPS.
+**Status:** Etap 0 — Pi + PC OK. Brakuje listy peerów z VPS / potwierdzenia iPhone.
 **Nie ruszamy routingu P2P / WRT** — to osobny projekt (`docs/wrt54gl_p2p_architektura.md`).
 
 Szablony: [`deploy/remote-ai/`](../deploy/remote-ai/).
 
-### Stan z diagnostyki (2026-10-14, mother-base)
+### Stan z diagnostyki (2026-10-14)
 
-| | |
-|--|--|
-| Host | `mother-base` (Pi, aarch64) |
-| LAN | `192.168.1.201/24` na `eth0`, brama `192.168.1.1` |
-| WG | `wg0` = **`10.10.0.2/24`** |
-| Peer VPS | endpoint **`130.61.160.71:51820`**, `allowed ips: 10.10.0.0/24`, keepalive 25s, handshake OK |
-| Hub | `127.0.0.1:8090` (uvicorn) |
-| Caddy | `:80` / `:443` |
-| Pi-hole | `:53`, admin `:8080` |
-| Jellyfin | `:8096` (nasłuchuje) |
-| Unbound | `127.0.0.1:5335` |
+| Host | Interfejs | IP | WG |
+|------|-----------|-----|-----|
+| **mother-base** (Pi) | `eth0` | `192.168.1.201/24` | `wg0` = **`10.10.0.2/24`** → VPS `130.61.160.71:51820`, AllowedIPs `10.10.0.0/24` |
+| **foxhound** (PC) | `enp5s0` | **`192.168.1.104/24`** | brak — i tak OK |
+| brama LAN | — | `192.168.1.1` | — |
 
-Wniosek: Pi jest pearem sieci `10.10.0.0/24` z hubem na VPS. **LAN nie jest w AllowedIPs** —
-z iPhone’a w WG da się naturalnie dojść do `10.10.0.2` (Pi), ale **nie** do `192.168.1.x`
-PC, dopóki nie dodamy peera PC albo reverse proxy na Pi.
+Pi ↔ PC: ping OK (~3 ms). Na Pi działa Caddy `:443`, Hub `:8090`, Jellyfin `:8096`.
 
-**Preferowana trasa Remote AI (opcja B′):**
+**Trasa Remote AI (ustalone):**
 
 ```text
-iPhone (peer 10.10.0.x)
-  → VPS (hub WG, 130.61.160.71)
-  → Pi 10.10.0.2  (Caddy TLS)
-  → PC 192.168.1.Y:8081 / :8787   (llama-server / hermes-webui na LAN)
+iPhone (peer WG 10.10.0.x)
+  → VPS hub 130.61.160.71
+  → Pi 10.10.0.2  (Caddy)
+  → foxhound 192.168.1.104:8081  llama-server
+  → foxhound 192.168.1.104:8787  hermes-webui
 ```
 
-PC nie musi mieć własnego WG. Caddy na Pi (już działa) proxy do PC w LAN.
+PC **nie** dostaje WireGuard. Proxy tylko z Pi w LAN.
 
 ---
 
@@ -308,36 +301,39 @@ komendami, które dostajesz poniżej i w `deploy/remote-ai/`.
 
 ---
 
-## 11. Następny krok (po diagnostyce Pi)
+## 11. Następny krok
 
-Pi mamy. Brakuje:
+PC = **foxhound / 192.168.1.104** — zapisane.
 
-1. **PC** — IP LAN + czy w ogóle ma `wg`.
-2. **VPS** — `sudo wg show` (lista peerów: kto ma jakie `10.10.0.x`, czy jest iPhone).
-
-### Na PC
+### Jeszcze Etap 0: VPS
 
 ```bash
 hostname
 ip -4 addr
-ip route
-command -v wg >/dev/null && sudo wg show || echo 'no wg on PC'
-ping -c2 192.168.1.201
+sudo wg show
 ```
 
-### Na VPS (SSH)
+Szukamy: IP VPS w `10.10.0.0/24` (pewnie `.1`), lista peerów (Pi `.2`, iPhone `?`).
+
+### Równolegle — Etap 2 na foxhound (nie czeka na VPS)
+
+Gdy masz GGUF Qwen ~9B Q5:
 
 ```bash
-hostname
-ip -4 addr show
-sudo wg show
-# Nie wklejaj PrivateKey. Public keys peerów + AllowedIPs wystarczą.
+# przykładowy test — dostosuj ścieżki do swojego builda llama.cpp
+./llama-server -m ~/models/qwen-*.gguf --host 127.0.0.1 --port 8081 -ngl 99 -c 8192
+# w drugim terminalu:
+curl -s http://127.0.0.1:8081/health
 ```
 
-### Pytania na tak/nie
+Potem otwarcie tylko na LAN (dla proxy z Pi), nie na świat:
 
-- Czy iPhone jest już pearem tego samego WG (`10.10.0.0/24`)?
-- Jaki jest IP LAN PC (`192.168.1.?`)?
+```bash
+# dopiero gdy localhost działa — bind na LAN PC:
+./llama-server -m ~/models/qwen-*.gguf --host 192.168.1.104 --port 8081 -ngl 99 -c 8192
+# z Pi:
+curl -s http://192.168.1.104:8081/health
+```
 
 ---
 
