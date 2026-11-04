@@ -235,18 +235,19 @@
 
 .theme-switch {
   font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  color: var(--accent);
   text-transform: uppercase;
   cursor: pointer;
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  background: transparent;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  background: var(--panel);
   font-family: var(--font);
   margin-left: 8px;
+  min-height: 36px;
 }
 
 .theme-switch:active {
-  background: var(--panel-2);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
 }

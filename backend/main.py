@@ -29,6 +29,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 from starlette.types import Scope
@@ -220,6 +221,16 @@ async def collector_action(collector_id: str, action_id: str) -> dict:
 # Frontend montujemy NA KOŃCU — trasy /api/* mają pierwszeństwo przed plikami.
 # Kiosk Chromium potrafi trzymać stary style.css mimo git pull — no-cache
 # na HTML/CSS/JS wymusza świeży layout po restarcie serwisu.
+
+# Stary instrument-panel żył pod /panel/ na innym branchu. Wejście na ten URL
+# dawało surowy FastAPI {"detail":"Not Found"} — JSON zamiast UI. Redirect
+# na Home (jawne odstępstwo: wygodniejsze niż 404 dla zakładek kiosku).
+# HEAD też — inaczej curl -I / bookmarki prefetch dają ten sam JSON 404.
+@app.api_route("/panel", methods=["GET", "HEAD"])
+@app.api_route("/panel/", methods=["GET", "HEAD"])
+@app.api_route("/panel/{rest:path}", methods=["GET", "HEAD"])
+async def panel_legacy_redirect(rest: str = "") -> RedirectResponse:
+    return RedirectResponse(url="/", status_code=302)
 
 
 class NoCacheStaticFiles(StaticFiles):
