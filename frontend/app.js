@@ -405,10 +405,16 @@ function chartLegend(series) {
 }
 
 function chartGuides(width, height, padX, padY) {
-  return [0.25, 0.5, 0.75].map((t) => {
+  const horiz = [0.25, 0.5, 0.75].map((t) => {
     const y = (padY + t * (height - padY * 2)).toFixed(1);
     return `<line class="chart-guide" x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" />`;
-  }).join("");
+  });
+  // Siatka pionowa — takt „streamu”, nie dekoracja.
+  const verts = [0.2, 0.4, 0.6, 0.8].map((t) => {
+    const x = (padX + t * (width - padX * 2)).toFixed(1);
+    return `<line class="chart-guide chart-guide--v" x1="${x}" y1="${padY}" x2="${x}" y2="${height - padY}" />`;
+  });
+  return horiz.concat(verts).join("");
 }
 
 /** Linie — metryki systemowe (CPU / RAM / temp). */
@@ -440,7 +446,8 @@ function renderLinePlot(series, width, height, padX, padY) {
 
   const lines = series.map((s) => {
     const role = seriesRole(s);
-    return `<path class="chart-line chart-line-${role}" d="${pathFor(s.points)}" />`;
+    // pathLength=1 + CSS stroke-dashoffset → animacja draw niezależna od długości ścieżki
+    return `<path class="chart-line chart-line-${role}" pathLength="1" stroke-dasharray="1" d="${pathFor(s.points)}" />`;
   }).join("");
 
   return `${chartGuides(width, height, padX, padY)}${lines}`;
@@ -1101,7 +1108,7 @@ function runBootSplash() {
   setInterval(refreshDashboard, POLL_MS);
 
   setTimeout(() => {
-    label.textContent = "LINK ESTABLISHED";
+    label.textContent = "0xLINK · ESTABLISHED";
     label.classList.add("is-ok");
     splash.classList.add("is-linked");
   }, 900);
