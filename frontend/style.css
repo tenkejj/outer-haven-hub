@@ -862,11 +862,22 @@ body {
 .metrics-row--strip .metric-label {
   font-size: 9px;
   letter-spacing: 0.12em;
+  flex-shrink: 0;
 }
 
 .metrics-row--strip .metric-value,
 .metrics-row--strip .metric-num {
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.2;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.metrics-row--strip .metric--number,
+.metrics-row--strip .metric--percent {
+  min-height: 40px;
+  overflow: visible;
+  gap: 2px;
 }
 
 .card--chart-focus .card-head {
@@ -1131,15 +1142,18 @@ body {
   grid-template-columns: 1.05fr 1fr;
   gap: 14px;
   align-items: stretch;
-  overflow: hidden;
+  /* visible — overflow:hidden wcześniej obcinał liczby TODAY/BLOCKED */
+  overflow: visible;
+  min-height: 0;
 }
 
 .hero-left {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
+  overflow: visible;
 }
 
 .hero-right {
@@ -1149,20 +1163,34 @@ body {
   min-height: 0;
   border-left: 1px solid var(--line);
   padding-left: 12px;
+  overflow: hidden; /* clip tylko w kolumnie wykresu, nie w metrykach */
 }
 
-/* Hero Pi-hole: 2×2 wyśrodkowane w wolnej przestrzeni nad rail (Option A) */
+.hero-right .chart-wrap,
+.hero-right .chart-wrap--tall {
+  padding-bottom: 4px;
+}
+
+.hero-right .chart {
+  /* lekki dolny oddech — SVG nie klei się do ramki */
+  padding-bottom: 2px;
+  box-sizing: border-box;
+}
+
+/* Hero Pi-hole: 2×2 nad rail — min-height chroni wartości przed obcięciem */
 .card--hero .metrics-row {
   flex: 1 1 auto;
   display: grid;
-  gap: 14px 18px;
+  gap: 10px 16px;
   place-content: center;
   place-items: stretch;
-  align-self: center;
+  align-self: stretch;
   width: 100%;
-  max-width: 380px;
-  min-height: 0;
-  padding: 6px 8px 10px;
+  max-width: 400px;
+  /* 2 rzędy label(~14) + value(~28) + gap — bez tego overflow zjada liczby */
+  min-height: 118px;
+  padding: 4px 6px 8px;
+  overflow: visible;
 }
 
 .card--hero .metrics-row--3 {
@@ -1237,19 +1265,19 @@ body {
   text-overflow: clip;
 }
 
-/* Hero Option A: większa niż dolne karty (28), bez 38; --3/--4 biją późniejsze 26px */
+/* Hero: label nad wartością — wartości NIE wolno shrinkować / clipować */
 .card--hero .metric--number,
 .card--hero .metric--percent {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 6px;
   text-align: center;
   width: 100%;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 52px;
+  overflow: visible;
 }
 
 .card--hero .metric--number .metric-value,
@@ -1263,14 +1291,15 @@ body {
   align-items: baseline;
   justify-content: center;
   width: 100%;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  /* Nerd Font ma wysokie glyfy — 0.95 powodowało nachodzenie na label */
-  line-height: 1.15;
-  padding: 2px 0 0;
+  line-height: 1.2;
+  padding: 0;
   letter-spacing: 0;
   text-align: center;
-  overflow: hidden;
+  overflow: visible;
+  flex-shrink: 0;
+  color: var(--text-hi);
   text-shadow: none;
 }
 
@@ -1290,7 +1319,7 @@ body {
   text-indent: 0.06em;
   line-height: 1.2;
   margin: 0;
-  padding: 0 0 2px;
+  padding: 0;
   color: var(--accent-2);
   opacity: 0.9;
   text-align: center;

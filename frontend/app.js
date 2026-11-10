@@ -529,8 +529,9 @@ function renderChart(chart, options = {}) {
   // Tall focus pages: more plot pixels, less number chrome.
   const width = tall ? 960 : (wide ? 520 : 300);
   const height = tall ? 300 : (wide ? 168 : 128);
-  const padX = tall ? 8 : 4;
-  const padY = tall ? 12 : 7;
+  const padX = tall ? 10 : 6;
+  /* Większy dolny pad — słupki/linie nie kleją się do krawędzi (ucięty dół) */
+  const padY = tall ? 18 : 10;
 
   const series = chart.series.map((s) => ({
     ...s,
@@ -670,10 +671,11 @@ function renderCard(collector, index, options = {}) {
   const status = collector.status || "error";
   const metrics = collector.metrics || [];
   const layout = collector.layout || "default";
-  const isHero = layout === "hero";
-  // chartFocus = stacked metrics-on-top / chart-fills-rest (Host cards).
-  // Never combine with hero — hero keeps proven left|right split.
-  const chartFocus = Boolean(options.chartFocus) && !isHero;
+  // Charts tab przekazuje chartFocus=true — wymuś focus layout nawet dla
+  // Pi-hole (layout:hero). Inaczej hero+BLOCKING wciska się w kratkę 2×2
+  // i nachodzi na wykres / obcina liczby.
+  const chartFocus = Boolean(options.chartFocus);
+  const isHero = layout === "hero" && !chartFocus;
   const idx = String(index + 1).padStart(2, "0");
   const chartDimmed = isHero && status === "warning";
 
