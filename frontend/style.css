@@ -1194,13 +1194,16 @@ body {
   align-items: baseline;
   justify-content: center;
   width: 100%;
-  font-size: 28px;
+  /* 22px zamiast 28 — mieści się w dolnym rzędzie Home bez obcinania */
+  font-size: 22px;
   font-weight: 700;
-  line-height: 0.95;
+  line-height: 1.05;
   padding: 0;
   letter-spacing: 0;
   text-align: center;
   overflow: visible;
+  color: var(--text-hi);
+  text-shadow: 0 0 6px rgba(51, 224, 255, 0.25);
 }
 
 .card:not(.card--hero) .metric-pad,
@@ -1218,10 +1221,12 @@ body {
   letter-spacing: 0.04em;
   /* kompensacja letter-spacing przy width:100% + text-align:center */
   text-indent: 0.04em;
-  line-height: 1;
-  margin: 0;
+  line-height: 1.15;
+  margin: 0 0 2px;
   padding: 0;
-  color: var(--text-dim);
+  /* text-dim na neonie był prawie niewidoczny — jaśniejszy label */
+  color: var(--accent-2);
+  opacity: 0.85;
   text-align: center;
   width: 100%;
   overflow: visible;
@@ -1587,13 +1592,14 @@ body {
   flex-shrink: 0;
 }
 
-/* Dolne karty Home: metryki kompaktowo u góry, wykres ma stałą stopkę */
+/* Dolne karty Home: metryki NIE wolno ścisnąć — wcześniej fixed chart 148px
+   + overflow:hidden obcinał wartości (widać było tylko LIVE/CPU/TEMP). */
 .card:not(.card--hero):not(.card--chart-focus) .card-main {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .card:not(.card--hero) .metric-num {
@@ -1640,15 +1646,17 @@ body {
   gap: 4px 8px;
 }
 
-/* Stała wysokość wykresu — Home overview cards */
+/* Wykres bierze RESZTĘ wysokości karty — metryki mają priorytet */
 .card:not(.card--hero):not(.card--chart-focus) .chart-wrap {
-  margin-top: auto;
-  flex: 0 0 148px;
-  height: 148px;
+  margin-top: 4px;
+  flex: 1 1 auto;
+  min-height: 72px;
+  height: auto;
   display: flex;
   flex-direction: column;
   padding-top: 5px;
   border-top: 1px solid var(--line);
+  overflow: hidden;
 }
 
 .card:not(.card--hero):not(.card--chart-focus) .chart-legend {
@@ -1656,17 +1664,17 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   gap: 8px 12px;
-  flex: 0 0 13px;
-  height: 13px;
-  margin-bottom: 4px;
+  flex: 0 0 14px;
+  height: 14px;
+  margin-bottom: 3px;
   font-size: 10px;
   overflow: hidden;
 }
 
 .card:not(.card--hero):not(.card--chart-focus) .chart {
-  flex: 0 0 120px;
-  height: 120px;
-  min-height: 120px;
+  flex: 1 1 auto;
+  height: 0; /* fill leftover under legend */
+  min-height: 56px;
 }
 
 /* Chart-focus cards (Host / VPN): chart MUST fill leftover height */
