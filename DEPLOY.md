@@ -87,3 +87,51 @@ chromium --kiosk --noerrdialogs --disable-infobars http://127.0.0.1:8090/
 ```
 
 No fixed `--window-size`; use the display resolution.
+
+## 5. HDMI „No Signal” (Pi 4 + monitor)
+
+Typowe przyczyny: zły port HDMI, brak hotplug przy zimnym starcie, DPMS/blank,
+albo X/Wayland w ogóle nie wystawia obrazu (kiosk nie wystartował).
+
+### Diagnostyka (na Pi)
+
+```bash
+# Który port ma sygnał? Na Pi 4: HDMI0 = bliżej USB-C (zasilanie) — używaj tego.
+vcgencmd get_display_power
+vcgencmd display_power 1          # włącz wyjście jeśli było 0
+# Bookworm:
+ls /sys/class/drm/
+cat /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null
+# Czy siedzi sesja graficzna / kiosk?
+loginctl
+ps aux | grep -E 'Xorg|wayfire|labwc|chromium' | grep -v grep
+```
+
+### Force hotplug (najczęstszy fix gdy monitor był wyłączony przy boot)
+
+Bookworm: `/boot/firmware/config.txt` (starsze: `/boot/config.txt`). Dopisz / odkomentuj:
+
+```
+hdmi_force_hotplug=1
+hdmi_group=1
+hdmi_mode=16
+# opcjonalnie konkretny port (0 = HDMI0 przy zasilaniu):
+# dtoverlay=vc4-kms-v3d
+```
+
+Potem: `sudo reboot`.
+
+`hdmi_mode=16` = 1080p60 (CEA). Inny monitor → dobierz tryb albo zostaw sam hotplug.
+
+### Po restarcie nadal czarno
+
+```bash
+# X11:
+DISPLAY=:0 xrandr --output HDMI-1 --auto || DISPLAY=:0 xrandr --output HDMI-A-1 --auto
+DISPLAY=:0 xset dpms force on
+# Wayland (labwc/wayfire): sprawdź czy seat ma output, restart kiosku/sesji
+sudo systemctl restart display-manager   # jeśli używasz DM
+```
+
+Kabel / przejściówka: przetestuj **HDMI0** (przy USB-C), inny kabel, bez USB-C hub
+między Pi a monitorem na ścieżce wideo.
