@@ -2,7 +2,42 @@
 
 Backend on `127.0.0.1:8090`. Do **not** set `HUB_DEMO` in production.
 
-## 1. Clone + venv
+## Update (już zainstalowane)
+
+Po merge do `master` — na Pi:
+
+```bash
+cd ~/outer-haven-hub    # dostosuj path jeśli inny
+git fetch origin
+git checkout master
+git pull origin master
+sudo systemctl restart outer-haven-hub
+```
+
+Sprawdzenie:
+
+```bash
+systemctl status outer-haven-hub --no-pager
+curl -sS http://127.0.0.1:8090/api/dashboard | head -c 200
+```
+
+Kiosk Chromium czasem trzyma stary CSS mimo `Cache-Control: no-cache` — hard-reload
+albo restart kiosku po `systemctl restart`.
+
+## Podgląd z telefonu (ten sam hub co na monitorze)
+
+Nie potrzebujesz osobnego dema. Caddy wystawia backend na LAN / WireGuard;
+telefon otwiera **ten sam** UI z prawdziwymi danymi.
+
+1. Telefon w Wi‑Fi domowym **albo** podłączony do WireGuard.
+2. Otwórz root huba, np. `https://hub.lan/` (Twój hostname z Caddy).
+3. **Nie** `/panel/` — to stary URL instrument-panel; teraz redirectuje na `/`,
+   ale na starszym deployu dawał `{"detail":"Not Found"}`.
+4. Hard-reload po deployu.
+
+Canvas 1024×600 skaluje się do viewportu telefonu (ten sam shell co kiosk).
+
+## 1. Clone + venv (pierwszy raz)
 
 ```bash
 git clone https://github.com/tenkejj/outer-haven-hub.git ~/outer-haven-hub
@@ -30,14 +65,18 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now outer-haven-hub
 ```
 
-## 3. Caddy (optional LAN / WG)
+## 3. Caddy (LAN / WG — wymagane do podglądu z telefonu)
 
 ```caddy
-your-hostname.example {
+hub.lan {
     tls internal
     reverse_proxy 127.0.0.1:8090
 }
 ```
+
+Bez tego bloku hub działa tylko na `127.0.0.1:8090` (kiosk na Pi). Telefon
+nie zobaczy nic, dopóki reverse proxy (i DNS / `dns.hosts` / WG) nie wskazuje
+na ten host.
 
 ## 4. Kiosk
 
