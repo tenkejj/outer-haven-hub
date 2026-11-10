@@ -1,10 +1,11 @@
 # Changelog — Outer Haven Hub
 
-## 2026-11-11 — neon cyberpunk + HDMI no-signal
+## 2026-11-11 — Charts + Health, mniej glow, fix overlap
 
-- Paleta fiolet / magenta / cyan, glowy, glitch brand, więcej animacji wykresów
-- Jawne odstępstwo od oliwkowego MGS/NieR (`.cursorrules` + komentarz w CSS)
-- DEPLOY §5: diagnostyka i fix HDMI „No Signal” na Pi 4
+- Taby: Home | Charts | Health | Apps (Net/Host → aliasy)
+- Charts: 2×2 wykresy z istniejących collectorów; Health: pełna siatka systemd
+- Fix nachodzenia label/value (hero + legend); stonowany glow; bez glitch na brand
+- Emblem: stały tint/glow CSS (bez animacji)
 
 ## 2026-11-11 — CRT cyberpunk HUD (produkcja)
 

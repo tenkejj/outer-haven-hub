@@ -1,27 +1,32 @@
 /* Outer Haven Hub — cards from /api/dashboard + touch actions.
    Frontend only knows the base.py contract (metrics / chart / actions).
 
-   Pages: Home | Net | Host | Apps  (#hub #net #host #apps)
-   Collector `services` skips the Home grid. */
+   Pages: Home | Charts | Health | Apps  (#hub #charts #health #apps)
+   Collector `services` skips the Home grid; Health shows full systemd board. */
 
 const POLL_MS = 5000;
 const STATUS_CODE = { ok: "OK", warning: "WARN", error: "ERR" };
 const STATUS_LABEL = { ok: "ONLINE", warning: "CAUTION", error: "ALERT" };
 const CHART_MAX_POINTS = 48;
-const PAGES = ["hub", "net", "host", "apps"];
+const PAGES = ["hub", "charts", "health", "apps"];
 const PAGE_TITLE = {
   hub: "Home",
+  charts: "Charts",
+  health: "Health",
+  apps: "Apps",
+  /* legacy titles if someone paints old views */
   net: "Net",
   host: "Host",
-  apps: "Apps",
 };
-/* Old deep-links from the 8-tab UI → new pages */
+/* Old deep-links (8-tab + Net/Host) → Charts / Health / Apps */
 const PAGE_ALIASES = {
-  dns: "net",
-  ads: "net",
-  disk: "host",
-  sys: "host",
-  svc: "apps",
+  net: "charts",
+  host: "charts",
+  dns: "charts",
+  ads: "charts",
+  disk: "charts",
+  sys: "charts",
+  svc: "health",
   media: "apps",
   mc: "apps",
   minecraft: "apps",
@@ -31,6 +36,8 @@ const SYS_EXTRA_LABELS = new Set(["CPU", "RAM", "TEMP", "LOAD", "SWAP", "THRTL"]
 const NET_LAN_LABELS = new Set(["IFACE", "NET IN", "NET OUT"]);
 
 const grid = document.getElementById("dashboard-grid");
+const chartsGrid = document.getElementById("charts-grid");
+const healthGrid = document.getElementById("health-grid");
 const netGrid = document.getElementById("net-grid");
 const hostGrid = document.getElementById("host-grid");
 const appsGrid = document.getElementById("apps-grid");
@@ -95,7 +102,7 @@ function formatPercentValue(raw) {
   return `${esc(String(Math.round(n * 10) / 10))}<span class="wall-stat-unit">%</span>`;
 }
 
-/** Wall Home — four status tiles, no charts (charts live on Net/Host). */
+/** Wall Home — four status tiles, no charts (charts live on Charts). */
 function renderWallHome(data) {
   const pihole = findCollector(data, "pihole");
   const vpn = findCollector(data, "wireguard");
@@ -116,28 +123,28 @@ function renderWallHome(data) {
 
   return `<div class="wall-home">
     <div class="wall-status-row">
-      <div class="wall-stat" data-status="${esc(pihole?.status || "error")}" data-jump="net" role="button" tabindex="0">
+      <div class="wall-stat" data-status="${esc(pihole?.status || "error")}" data-jump="charts" role="button" tabindex="0">
         <div class="wall-stat-label">DNS</div>
         <div class="wall-stat-value">${formatPercentValue(pctBlock)}</div>
         <div class="wall-stat-sub">${esc(block)} blocked</div>
       </div>
-      <div class="wall-stat" data-status="${esc(vpn?.status || "error")}" data-jump="net" role="button" tabindex="0">
+      <div class="wall-stat" data-status="${esc(vpn?.status || "error")}" data-jump="charts" role="button" tabindex="0">
         <div class="wall-stat-label">VPN</div>
         <div class="wall-stat-value">${esc(String(peers))}</div>
         <div class="wall-stat-sub">peers online</div>
       </div>
-      <div class="wall-stat" data-status="${esc(sys?.status || "error")}" data-jump="host" role="button" tabindex="0">
+      <div class="wall-stat" data-status="${esc(sys?.status || "error")}" data-jump="charts" role="button" tabindex="0">
         <div class="wall-stat-label">Host</div>
         <div class="wall-stat-value">${esc(String(cpu))}</div>
         <div class="wall-stat-sub">${esc(String(temp))} · CPU</div>
       </div>
-      <div class="wall-stat" data-status="${esc(svc?.status || "error")}" data-jump="apps" role="button" tabindex="0">
-        <div class="wall-stat-label">Apps</div>
+      <div class="wall-stat" data-status="${esc(svc?.status || "error")}" data-jump="health" role="button" tabindex="0">
+        <div class="wall-stat-label">Health</div>
         <div class="wall-stat-value">${esc(String(summary.up))}<span class="wall-stat-unit">/${esc(String(Number(summary.up) + Number(summary.down) || "—"))}</span></div>
         <div class="wall-stat-sub">MC ${esc(mcVal)}</div>
       </div>
     </div>
-    <div class="wall-hint">Sidebar → Net / Host / Apps for charts · tap tile to jump</div>
+    <div class="wall-hint">Sidebar → Charts / Health / Apps · tap tile to jump</div>
   </div>`;
 }
 
@@ -153,16 +160,16 @@ function renderDeckHome(data) {
 
   const tiles = [
     {
-      page: "net",
+      page: "charts",
       label: "Network",
       value: metricValue(pihole, "% BLOCK"),
       sub: metricValue(pihole, "BLOCK"),
-      hint: "Pi-hole + VPN",
+      hint: "Pi-hole + VPN charts",
       status: pihole?.status || "error",
       isPercent: true,
     },
     {
-      page: "host",
+      page: "charts",
       label: "System",
       value: metricValue(sys, "CPU"),
       sub: metricValue(sys, "TEMP"),
@@ -170,19 +177,19 @@ function renderDeckHome(data) {
       status: sys?.status || "error",
     },
     {
-      page: "host",
-      label: "Storage",
-      value: metricValue(disk, "FREE"),
-      sub: metricValue(disk, "HEALTH"),
-      hint: "SMART disk",
-      status: disk?.status || "error",
+      page: "health",
+      label: "Health",
+      value: serviceSummary(svc).up,
+      sub: `down ${serviceSummary(svc).down}`,
+      hint: "All systemd units",
+      status: svc?.status || "error",
     },
     {
       page: "apps",
       label: "Minecraft",
       value: mc ? mc.value : "—",
       sub: mc?.note || "mother-base:25565",
-      hint: "Tap for all apps",
+      hint: "Tap for apps",
       status: mc?.state || "error",
     },
   ];
@@ -824,18 +831,64 @@ function cardOrEmpty(collector, emptyMsg, options = {}) {
   return renderCard(collector, 0, options);
 }
 
-/** Net = Pi-hole (controls + chart) + VPN traffic — not a Home clone. */
+/** Charts = 2×2 full plots from existing collectors (no new sensors). */
+function renderChartsView(data) {
+  if (!chartsGrid) return;
+  const pihole = findCollector(data, "pihole");
+  const vpn = findCollector(data, "wireguard");
+  const rawSys = findCollector(data, "system");
+  const sys = withMetrics(rawSys, SYS_EXTRA_LABELS);
+  const painted = sys && rawSys
+    ? { ...sys, chart: rawSys.chart, status: rawSys.status, label: "System" }
+    : sys;
+  const disk = findCollector(data, "smart");
+
+  chartsGrid.innerHTML = `
+    <div class="page-slot">${cardOrEmpty(pihole, "pihole offline", { chartFocus: true })}</div>
+    <div class="page-slot">${cardOrEmpty(vpn, "vpn offline", { chartFocus: true })}</div>
+    <div class="page-slot">${cardOrEmpty(painted, "system offline", { chartFocus: true })}</div>
+    <div class="page-slot">${cardOrEmpty(disk, "disk offline", { chartFocus: true })}</div>`;
+}
+
+/** Health = full systemd board from services collector. */
+function renderHealthView(collector) {
+  if (!healthGrid) return;
+  if (!collector) {
+    healthGrid.innerHTML = `<div class="empty-state">services offline</div>`;
+    return;
+  }
+  if (collector.error && !serviceStatusMetrics(collector).length) {
+    healthGrid.innerHTML = `<div class="empty-state">${esc(collector.error)}</div>`;
+    return;
+  }
+
+  const summary = serviceSummary(collector);
+  const metrics = serviceStatusMetrics(collector);
+  const tiles = metrics.map((m, i) => renderServiceTile(m, i, {
+    showNote: Boolean(m.note),
+    size: "md",
+  })).join("");
+
+  healthGrid.innerHTML = `
+    <div class="health-summary" data-status="${esc(collector.status || "error")}">
+      <span>UNITS<strong>${esc(String(metrics.length))}</strong></span>
+      <span>UP<strong>${esc(String(summary.up))}</strong></span>
+      <span>DOWN<strong>${esc(String(summary.down))}</strong></span>
+      <span>STATUS<strong>${esc(STATUS_CODE[collector.status] || "ERR")}</strong></span>
+    </div>
+    <div class="health-grid">${tiles || `<div class="empty-state">no units</div>`}</div>`;
+}
+
+/** Legacy Net/Host (hash aliases redirect; kept for rare direct paint). */
 function renderNetView(data) {
   if (!netGrid) return;
   const pihole = findCollector(data, "pihole");
   const vpn = findCollector(data, "wireguard");
-
   netGrid.innerHTML = `
     <div class="page-slot page-slot--ads">${cardOrEmpty(pihole, "pihole offline")}</div>
     <div class="page-slot page-slot--vpn">${cardOrEmpty(vpn, "vpn offline", { chartFocus: true })}</div>`;
 }
 
-/** Host = System + Disk, charts fill each column. */
 function renderHostView(data) {
   if (!hostGrid) return;
   const rawSys = findCollector(data, "system");
@@ -844,7 +897,6 @@ function renderHostView(data) {
     ? { ...sys, chart: rawSys.chart, status: rawSys.status, label: "System" }
     : sys;
   const disk = findCollector(data, "smart");
-
   hostGrid.innerHTML = `
     <div class="page-slot page-slot--sys">${cardOrEmpty(painted, "system offline", { chartFocus: true })}</div>
     <div class="page-slot page-slot--disk">${cardOrEmpty(disk, "disk offline", { chartFocus: true })}</div>`;
@@ -929,7 +981,7 @@ function paintPage(data) {
     } else if (currentTheme === "deck") {
       grid.innerHTML = renderDeckHome(data);
     } else {
-      // Home = overview only (classic cards). Deep charts live on Net / Host.
+      // Home = overview only (classic cards). Deep charts → Charts tab.
       const collectors = (data.collectors || [])
         .filter((c) => c.id !== "services")
         .map((c) => (c.id === "system" ? withMetrics(c, HUB_SYSTEM_LABELS) : c));
@@ -939,6 +991,10 @@ function paintPage(data) {
         grid.innerHTML = collectors.map((c, i) => renderCard(c, i)).join("");
       }
     }
+  } else if (currentPage === "charts") {
+    renderChartsView(data);
+  } else if (currentPage === "health") {
+    renderHealthView(svc);
   } else if (currentPage === "net") {
     renderNetView(data);
   } else if (currentPage === "host") {

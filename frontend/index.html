@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <title>OUTER HAVEN HUB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <link rel="stylesheet" href="style.css?v=neon2">
-  <link rel="stylesheet" href="theme-wall.css?v=neon2">
-  <link rel="stylesheet" href="theme-deck.css?v=neon2">
+  <link rel="stylesheet" href="style.css?v=neon3">
+  <link rel="stylesheet" href="theme-wall.css?v=neon3">
+  <link rel="stylesheet" href="theme-deck.css?v=neon3">
 </head>
 <body>
   <div class="shell" id="shell" data-theme="hud">
@@ -29,13 +29,13 @@
         <span class="side-tab-icon" aria-hidden="true">◆</span>
         <span>Home</span>
       </button>
-      <button type="button" class="side-tab" role="tab" data-page="net" aria-selected="false">
-        <span class="side-tab-icon" aria-hidden="true">◎</span>
-        <span>Net</span>
+      <button type="button" class="side-tab" role="tab" data-page="charts" aria-selected="false">
+        <span class="side-tab-icon" aria-hidden="true">◈</span>
+        <span>Charts</span>
       </button>
-      <button type="button" class="side-tab" role="tab" data-page="host" aria-selected="false">
-        <span class="side-tab-icon" aria-hidden="true">▣</span>
-        <span>Host</span>
+      <button type="button" class="side-tab" role="tab" data-page="health" aria-selected="false">
+        <span class="side-tab-icon" aria-hidden="true">◎</span>
+        <span>Health</span>
       </button>
       <button type="button" class="side-tab" role="tab" data-page="apps" aria-selected="false">
         <span class="side-tab-icon" aria-hidden="true">▤</span>
@@ -71,8 +71,8 @@
 
       <nav class="page-nav page-nav--top" id="page-nav" role="tablist" aria-label="Pages">
         <button type="button" class="page-tab is-active" role="tab" data-page="hub" aria-selected="true">Home</button>
-        <button type="button" class="page-tab" role="tab" data-page="net" aria-selected="false">Net</button>
-        <button type="button" class="page-tab" role="tab" data-page="host" aria-selected="false">Host</button>
+        <button type="button" class="page-tab" role="tab" data-page="charts" aria-selected="false">Charts</button>
+        <button type="button" class="page-tab" role="tab" data-page="health" aria-selected="false">Health</button>
         <button type="button" class="page-tab" role="tab" data-page="apps" aria-selected="false">Apps</button>
       </nav>
 
@@ -80,6 +80,15 @@
         <div id="dashboard-grid"></div>
       </main>
 
+      <main id="view-charts" class="view" data-page="charts" hidden aria-live="polite">
+        <div id="charts-grid" class="page-grid page-grid--charts"></div>
+      </main>
+
+      <main id="view-health" class="view" data-page="health" hidden aria-live="polite">
+        <div id="health-grid" class="page-grid page-grid--health"></div>
+      </main>
+
+      <!-- Legacy Net/Host views kept for hash aliases; paintPage may redirect -->
       <main id="view-net" class="view" data-page="net" hidden aria-live="polite">
         <div id="net-grid" class="page-grid page-grid--net"></div>
       </main>
@@ -106,6 +115,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=neon2"></script>
+  <script src="app.js?v=neon3"></script>
 </body>
 </html>
