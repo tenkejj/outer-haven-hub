@@ -1,5 +1,12 @@
 # Changelog — Outer Haven Hub
 
+## 2026-11-11 — CRT cyberpunk HUD (produkcja)
+
+- Fosforowa paleta, scanlines, CRT sweep, draw-in linii / rise słupków (steps)
+- Blink statusów (badge / pasek karty), branding `0x*`, footer STREAM
+- Redirect `GET|HEAD /panel` → `/` (stary JSON `{"detail":"Not Found"}`)
+- DEPLOY: update na Pi + podgląd z telefonu przez Caddy
+
 ## 2026-08-12 — strony HUB / SVC / MEDIA + collector services
 
 - UI: segment `HUB | SVC | MEDIA` (hash `#hub`/`#svc`/`#media`), ten sam shell kiosku

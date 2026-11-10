@@ -1,15 +1,13 @@
-"""Collector statusu jednostek systemd (Jellyfin, Samba, Caddy, Pi-hole, …).
+"""Collector statusu jednostek systemd (Jellyfin, Samba, Minecraft, …).
 
 Czyta stan przez `systemctl is-active <unit>` — bez dodatkowych zależności
-i bez sudo (is-active działa dla zwykłego użytkownika na jednostkach
-systemowych). Frontend używa tych samych metryk na stronach SVC i MEDIA
-(MEDIA filtruje po fladze media / id jellyfin+samba).
+i bez sudo. Frontend używa tych metryk na stronach Svc / Media / MC
+(Media → flaga media, Minecraft → flaga game).
 
 Kształt metryk (kontrakt base.py):
   - number: UP / DOWN (podsumowanie)
-  - status: jedna metryka na jednostkę (ACTIVE / DOWN / FAILED)
-  - opcjonalne pola poza speką (id, note, media) — frontend stron SVC/MEDIA
-    je czyta; generyczny render karty HUB i tak omija collector `services`.
+  - status: jedna metryka na jednostkę (ON / OFF / FAIL)
+  - opcjonalne pola poza speką (id, note, media, game)
 """
 
 from __future__ import annotations
@@ -24,29 +22,31 @@ log = logging.getLogger("hub.services")
 
 # Domyślna lista — gdy config.yaml nie poda `units`. Kolejność = kolejność kart.
 DEFAULT_UNITS: list[dict[str, Any]] = [
-    {"id": "jellyfin", "unit": "jellyfin.service", "label": "JELLYFIN", "media": True,
+    {"id": "jellyfin", "unit": "jellyfin.service", "label": "Jellyfin", "media": True,
      "note": "http://mother-base:8096"},
-    {"id": "samba", "unit": "smbd.service", "label": "SMB", "media": True,
+    {"id": "samba", "unit": "smbd.service", "label": "Files", "media": True,
      "note": "smb://mother-base"},
+    {"id": "minecraft", "unit": "minecraft.service", "label": "Minecraft", "game": True,
+     "note": "mother-base:25565", "critical": False},
     {"id": "nmbd", "unit": "nmbd.service", "label": "NMBD"},
-    {"id": "winbind", "unit": "winbind.service", "label": "WINBIND", "critical": False},
-    {"id": "wsdd2", "unit": "wsdd2.service", "label": "WSDD2"},
-    {"id": "caddy", "unit": "caddy.service", "label": "CADDY"},
-    {"id": "pihole", "unit": "pihole-FTL.service", "label": "PIHOLE"},
-    {"id": "unbound", "unit": "unbound.service", "label": "UNBOUND"},
-    {"id": "hub", "unit": "outer-haven-hub.service", "label": "HUB"},
+    {"id": "winbind", "unit": "winbind.service", "label": "Winbind", "critical": False},
+    {"id": "wsdd2", "unit": "wsdd2.service", "label": "WSDD"},
+    {"id": "caddy", "unit": "caddy.service", "label": "Caddy"},
+    {"id": "pihole", "unit": "pihole-FTL.service", "label": "Pi-hole"},
+    {"id": "unbound", "unit": "unbound.service", "label": "Unbound"},
+    {"id": "hub", "unit": "outer-haven-hub.service", "label": "Hub"},
     {"id": "ssh", "unit": "ssh.service", "label": "SSH"},
-    {"id": "nm", "unit": "NetworkManager.service", "label": "NETMGR"},
-    {"id": "avahi", "unit": "avahi-daemon.service", "label": "AVAHI", "critical": False},
+    {"id": "nm", "unit": "NetworkManager.service", "label": "Net"},
+    {"id": "avahi", "unit": "avahi-daemon.service", "label": "Avahi", "critical": False},
     {"id": "bluetooth", "unit": "bluetooth.service", "label": "BT", "critical": False},
-    {"id": "cron", "unit": "cron.service", "label": "CRON", "critical": False},
-    {"id": "smart", "unit": "smartmontools.service", "label": "SMARTD", "critical": False},
+    {"id": "cron", "unit": "cron.service", "label": "Cron", "critical": False},
+    {"id": "smart", "unit": "smartmontools.service", "label": "SMART", "critical": False},
 ]
 
 
 class ServicesCollector(Collector):
     id = "services"
-    label = "SERVICES"
+    label = "Services"
     icon = "box"
     refresh_interval = 10
 
@@ -81,17 +81,16 @@ class ServicesCollector(Collector):
     @staticmethod
     def _display_value(state: str) -> str:
         if state == "active":
-            return "ACTIVE"
+            return "ON"
         if state == "failed":
-            return "FAILED"
+            return "FAIL"
         if state in ("inactive", "dead"):
-            return "DOWN"
+            return "OFF"
         if state == "activating":
-            return "STARTING"
+            return "…"
         if state == "deactivating":
-            return "STOPPING"
-        # unknown / not-found / …
-        return state.upper() or "DOWN"
+            return "…"
+        return "?"
 
     @staticmethod
     def _metric_state(state: str) -> str:
@@ -111,9 +110,11 @@ class ServicesCollector(Collector):
             if not unit_name:
                 continue
             uid = str(entry.get("id") or unit_name)
-            label = str(entry.get("label") or uid).upper()
+            # Label zostawiamy jak w configu (czytelny tekst, nie UPPERCASE).
+            label = str(entry.get("label") or uid)
             note = str(entry.get("note") or entry.get("url") or "").strip()
             media = bool(entry.get("media"))
+            game = bool(entry.get("game"))
             # critical: false → DOWN nie psuje zbiorczego statusu karty
             critical = entry.get("critical", True)
 
@@ -132,9 +133,10 @@ class ServicesCollector(Collector):
                 "value": self._display_value(state),
                 "type": "status",
                 "state": mstate,
-                # Pola poza speką — strony SVC/MEDIA (patrz komentarz w module).
+                # Extra fields — Svc / Media / MC pages.
                 "note": note,
                 "media": media,
+                "game": game,
             })
 
         up = sum(1 for u in unit_states if u["state"] == "active")

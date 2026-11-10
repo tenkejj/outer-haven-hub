@@ -1,0 +1,158 @@
+/* Deck theme — bottom dock nav, 2×2 launch tiles on Home.
+   Enable: ?theme=deck (cycle via theme button in header). */
+
+.shell[data-theme="deck"] {
+  padding: 6px 10px 0;
+}
+
+.shell[data-theme="deck"] .corner {
+  display: none;
+}
+
+.shell[data-theme="deck"] .side-nav {
+  display: none;
+}
+
+.shell[data-theme="deck"] .topbar {
+  height: 44px;
+}
+
+.shell[data-theme="deck"] .emblem {
+  height: 40px;
+}
+
+.shell[data-theme="deck"] .brand {
+  font-size: 12px;
+}
+
+.shell[data-theme="deck"] .rule {
+  margin: 2px 0 4px;
+}
+
+/* Dock at bottom — tabs grow upward */
+.shell[data-theme="deck"] .shell-main {
+  padding-bottom: 0;
+}
+
+.shell[data-theme="deck"] .page-nav--top {
+  order: 10;
+  margin-top: auto;
+  flex-shrink: 0;
+  border-top: 1px solid var(--line-hi);
+  border-bottom: 0;
+  min-height: 52px;
+}
+
+.shell[data-theme="deck"] .page-tab {
+  min-height: 52px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  border-bottom: 0;
+  border-right: 1px solid var(--line);
+}
+
+.shell[data-theme="deck"] .page-tab.is-active {
+  border-bottom: 0;
+  border-top: 3px solid var(--accent);
+  padding-top: 0;
+}
+
+.shell[data-theme="deck"] .foot {
+  order: 11;
+  padding: 2px 0 4px;
+  font-size: 10px;
+}
+
+/* Deck Home — big launch tiles */
+.deck-home {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deck-launch {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+}
+
+.deck-tile {
+  margin: 0;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.deck-tile[data-status="ok"] {
+  border-left: 4px solid var(--ok);
+}
+.deck-tile[data-status="warning"] {
+  border-left: 4px solid var(--warn);
+}
+.deck-tile[data-status="error"] {
+  border-left: 4px solid var(--error);
+}
+
+.deck-tile:active {
+  background: var(--panel-2);
+}
+
+.deck-tile-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.deck-tile-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-hi);
+  line-height: 1;
+}
+
+.deck-tile-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+}
+
+.deck-tile-hint {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+/* Deck — charts get more vertical space */
+.shell[data-theme="deck"] .page-grid--net {
+  grid-template-rows: 1fr;
+}
+
+.shell[data-theme="deck"] .page-slot--vpn {
+  display: none;
+}
+
+.shell[data-theme="deck"] .card--chart-focus .focus-chart .chart {
+  min-height: 220px !important;
+}
+
+.shell[data-theme="deck"] .apps-featured--six {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
