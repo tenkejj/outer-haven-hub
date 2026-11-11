@@ -1,5 +1,25 @@
 # Changelog — Outer Haven Hub
 
+## 2026-11-11 — produkcja kiosk + motywy kiosk/telefon
+
+- `deploy/kiosk.xinitrc`: 1080p, bez `--window-size`, URL `/?theme=hud` (nie `/panel/`)
+- DEPLOY: hub.haven, update z backupem config, check kiosku
+- Motywy: auto Wall na telefonie / HUD na kiosku; `?theme=` i localStorage
+
+## 2026-11-11 — Charts + Health, mniej glow, fix overlap
+
+- Taby: Home | Charts | Health | Apps (Net/Host → aliasy)
+- Charts: 2×2 wykresy z istniejących collectorów; Health: pełna siatka systemd
+- Fix nachodzenia label/value (hero + legend); stonowany glow; bez glitch na brand
+- Emblem: stały tint/glow CSS (bez animacji)
+
+## 2026-11-11 — CRT cyberpunk HUD (produkcja)
+
+- Fosforowa paleta, scanlines, CRT sweep, draw-in linii / rise słupków (steps)
+- Blink statusów (badge / pasek karty), branding `0x*`, footer STREAM
+- Redirect `GET|HEAD /panel` → `/` (stary JSON `{"detail":"Not Found"}`)
+- DEPLOY: update na Pi + podgląd z telefonu przez Caddy
+
 ## 2026-08-12 — strony HUB / SVC / MEDIA + collector services
 
 - UI: segment `HUB | SVC | MEDIA` (hash `#hub`/`#svc`/`#media`), ten sam shell kiosku

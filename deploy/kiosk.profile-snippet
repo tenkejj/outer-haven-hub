@@ -1,0 +1,7 @@
+# Fragment do ~/.bash_profile (lub ~/.profile gdy nie ma bash_profile).
+# Startuje X+kiosk TYLKO na lokalnej konsoli tty1 — nie przy SSH.
+
+# Kiosk X tylko na lokalnej konsoli
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+  startx
+fi

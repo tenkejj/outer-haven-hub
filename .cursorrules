@@ -35,7 +35,8 @@ renderować karty generycznie, bez wiedzy „z góry” o konkretnym źródle.
 
 ## UI
 
-- Kierunek: MGS codec / NieR — flat, geometryczny, mono.
-- ZAKAZ: gradienty tła, soft glow, box-shadow z poświatą, zaokrąglone „karty AI”,
-  fiolet, glassmorphism, emoji.
-- Akcent: jeden stonowany oliwkowy. Narożniki L, twarde krawędzie, duże cele dotykowe.
+- Kierunek bazowy: MGS codec / NieR — flat, geometryczny, mono, duże cele dotykowe.
+- **Odstępstwo (owner, 2026-11):** neon cyberpunk — fiolet / magenta / cyan, scanlines,
+  kontrolowane glowy i więcej animacji HUD. Jawnie w `frontend/style.css` (`:root`).
+  Nadal bez glassmorphism, emoji i „AI cards” z dużym radiusem.
+- Motywy HUD / Wall / Deck dziedziczą tę samą paletę.
