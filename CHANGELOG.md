@@ -1,5 +1,11 @@
 # Changelog — Outer Haven Hub
 
+## 2026-11-11 — produkcja kiosk + motywy kiosk/telefon
+
+- `deploy/kiosk.xinitrc`: 1080p, bez `--window-size`, URL `/?theme=hud` (nie `/panel/`)
+- DEPLOY: hub.haven, update z backupem config, check kiosku
+- Motywy: auto Wall na telefonie / HUD na kiosku; `?theme=` i localStorage
+
 ## 2026-11-11 — Charts + Health, mniej glow, fix overlap
 
 - Taby: Home | Charts | Health | Apps (Net/Host → aliasy)

@@ -59,11 +59,22 @@ let actionBusy = false;
 let lastDashboard = null;
 let currentPage = "hub";
 
-/* ---------- themes: HUD (default) | Wall (sidebar) | Deck (bottom dock) ---------- */
+/* ---------- themes: HUD (kiosk) | Wall (phone) | Deck (dock) ----------
+   Priorytet: ?theme= → localStorage → auto (touch/wąski = wall, inaczej hud).
+   Kiosk xinitrc wymusza ?theme=hud; telefon zwykle dostaje Wall z auto. */
 
 const THEMES = ["hud", "wall", "deck"];
 const THEME_LABEL = { hud: "HUD", wall: "WALL", deck: "DECK" };
 let currentTheme = "hud";
+
+function detectDefaultTheme() {
+  const w = window.innerWidth || 0;
+  const h = window.innerHeight || 0;
+  const narrow = Math.min(w, h) < 700 || w < 900;
+  const coarse = window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  const touchy = coarse || ((navigator.maxTouchPoints || 0) > 0 && narrow);
+  return touchy || narrow ? "wall" : "hud";
+}
 
 function themeFromUrl() {
   const param = new URLSearchParams(location.search).get("theme");
@@ -73,19 +84,22 @@ function themeFromUrl() {
     const saved = localStorage.getItem("oh-theme");
     if (THEMES.includes(saved)) return saved;
   } catch (_) { /* ignore */ }
-  return "hud";
+  return detectDefaultTheme();
 }
 
 function setTheme(theme, options = {}) {
   const next = THEMES.includes(theme) ? theme : "hud";
   currentTheme = next;
   if (shellEl) shellEl.dataset.theme = next;
-  if (themeSwitch) themeSwitch.textContent = THEME_LABEL[next] || "HUD";
+  if (themeSwitch) {
+    themeSwitch.textContent = THEME_LABEL[next] || "HUD";
+    themeSwitch.title = "Cycle HUD → Wall → Deck (kiosk=HUD, phone=Wall)";
+  }
   try { localStorage.setItem("oh-theme", next); } catch (_) { /* ignore */ }
   if (options.updateUrl !== false) {
     const url = new URL(location.href);
-    if (next === "hud") url.searchParams.delete("theme");
-    else url.searchParams.set("theme", next);
+    // Trzymaj theme w query — kiosk startuje z ?theme=hud z xinitrc
+    url.searchParams.set("theme", next);
     history.replaceState(null, "", `${url.pathname}${url.search}${location.hash}`);
   }
   if (lastDashboard) paintPage(lastDashboard);
